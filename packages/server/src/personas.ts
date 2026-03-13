@@ -180,20 +180,37 @@ function storePersonas(personas: ParsedPersona[]): number {
 // ---------- Public API ----------
 
 export async function fetchAndStorePersonas(): Promise<void> {
-  await cloneOrPullRepo();
-  const personas = parsePersonaFiles();
-  const count = storePersonas(personas);
+  try {
+    await cloneOrPullRepo();
+    const personas = parsePersonaFiles();
+    const count = storePersonas(personas);
 
-  const specialtyCounts = new Map<string, number>();
-  for (const p of personas) {
-    for (const s of p.specialties) {
-      specialtyCounts.set(s, (specialtyCounts.get(s) ?? 0) + 1);
+    const specialtyCounts = new Map<string, number>();
+    for (const p of personas) {
+      for (const s of p.specialties) {
+        specialtyCounts.set(s, (specialtyCounts.get(s) ?? 0) + 1);
+      }
+    }
+    console.log(
+      `[personas] Stored ${count} personas. Specialties: ` +
+        [...specialtyCounts.entries()].map(([k, v]) => `${k}(${v})`).join(', '),
+    );
+  } catch (err) {
+    // Fall back to previously cached personas in the database
+    const db = getDb();
+    const { count } = db.prepare('SELECT COUNT(*) as count FROM personas').get() as {
+      count: number;
+    };
+    if (count > 0) {
+      console.warn(
+        `[personas] Repo unavailable, using ${count} cached personas from database`,
+      );
+    } else {
+      console.error(
+        `[personas] Repo unavailable and no cached personas: ${err instanceof Error ? err.message : err}`,
+      );
     }
   }
-  console.log(
-    `[personas] Stored ${count} personas. Specialties: ` +
-      [...specialtyCounts.entries()].map(([k, v]) => `${k}(${v})`).join(', '),
-  );
 }
 
 export function getPersonas(): Record<string, unknown>[] {
