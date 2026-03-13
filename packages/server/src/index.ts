@@ -2,6 +2,7 @@ import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { initDb, closeDb } from './db.js';
 import { SimClock } from './sim-clock.js';
+import { handleMcpRequest, closeMcpSessions } from './mcp/server.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -26,6 +27,12 @@ function json(res: http.ServerResponse, data: unknown, status = 200): void {
 
 const server = http.createServer(async (req, res) => {
   const { method, url } = req;
+
+  // MCP endpoint — delegate to StreamableHTTP transport
+  if (url?.startsWith('/mcp')) {
+    const handled = await handleMcpRequest(req, res);
+    if (handled) return;
+  }
 
   if (url === '/api/sim/status' && method === 'GET') {
     return json(res, {
@@ -92,6 +99,7 @@ server.listen(PORT, () => {
 function shutdown() {
   console.log('Shutting down...');
   clock.stop();
+  closeMcpSessions();
   wss.close();
   server.close();
   closeDb();

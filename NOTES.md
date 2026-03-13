@@ -31,12 +31,12 @@ Notes for the next agent: Import SimClock and call clock.onTick(callback) to sub
 
 Phase 2.1 — MCP Server with Stub Tool Handlers
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: MCP server using @modelcontextprotocol/sdk (v1.27.1) with StreamableHTTP transport mounted at POST/GET/DELETE /mcp on the existing HTTP server. Tool registry module (src/mcp/tool-registry.ts) defines all 24 tools from DESIGN_DOC.md with complete Zod v4 input schemas, descriptions, and managerOnly flags. MCP server module (src/mcp/server.ts) creates per-session McpServer instances, registers all tools with stub handlers that log calls and return placeholder success responses, and manages session lifecycle. 11 general tools: walk_to_desk, walk_to_agent, walk_to_meeting_room, walk_to_exit, speak, send_to_manager, begin_task, commit_work, open_pull_request, set_state, report_blocker. 13 manager-only tools: hire_agent, fire_agent, create_team, assign_agent_to_team, create_project, delete_project, assign_team_to_project, create_worktree, schedule_event, review_pull_request, merge_pull_request, trigger_compression, checkpoint_agent. Permission validation layer checks agent role from the agents table — office_manager and team_manager roles pass, regular agent role is rejected. Agent identity passed via _agent_id field (to be replaced by session context in Phase 3.0). Schema validation via Zod rejects wrong types and missing required fields. Graceful shutdown closes all MCP sessions.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: Agent identity for permission checks uses a temporary _agent_id field passed in tool arguments rather than session context, because the provider abstraction (Phase 3.0) that establishes session identity doesn't exist yet. All schemas use .passthrough() so this meta-field survives Zod validation. The MCP server creates a fresh McpServer instance per session (required by the SDK — each Server/McpServer can only connect to one transport).
+Issues encountered: MCP SDK v1.27.1 exports McpServer from @modelcontextprotocol/sdk/server/mcp.js (not the documented @modelcontextprotocol/server path). StreamableHTTPServerTransport.sessionId is undefined until after handleRequest processes the initialize call, so session storage must happen after handleRequest returns. Zod v4 z.record() requires two arguments (key schema + value schema), unlike v3. Zod v4 z.object() strips unknown keys by default, requiring .passthrough() to preserve the _agent_id meta-field.
+Notes for the next agent: Import createMcpServer from ./mcp/server.js to get a fresh MCP server instance with all tools. Import TOOL_DEFINITIONS from ./mcp/tool-registry.js for tool metadata. To replace a stub handler, modify the handler in server.ts or refactor to import handlers from separate modules. The MCP endpoint is at /mcp (StreamableHTTP protocol — POST to initialize, include mcp-session-id header for subsequent requests). Manager-only tools are listed in the MANAGER_ONLY_TOOLS set exported from tool-registry.ts. The validateAgentPermission function checks agent role from the DB.
 
 Phase 2.2 — Persona System
 
