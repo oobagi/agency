@@ -24,7 +24,7 @@ export class SimClock {
       // Initialize to sim day 1 at 07:00 (before office hours start at 08:00)
       this.simTime = new Date('2026-01-01T07:00:00.000Z');
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('sim_time', ?)").run(
-        JSON.stringify(this.simTime.toISOString())
+        JSON.stringify(this.simTime.toISOString()),
       );
     }
 
@@ -78,7 +78,7 @@ export class SimClock {
     this.speed = multiplier;
     const db = getDb();
     db.prepare("UPDATE settings SET value = ? WHERE key = 'sim_speed'").run(
-      JSON.stringify(this.speed)
+      JSON.stringify(this.speed),
     );
 
     // Restart the interval with the new speed if running
@@ -122,14 +122,14 @@ export class SimClock {
   private persistTime(): void {
     const db = getDb();
     db.prepare("UPDATE settings SET value = ? WHERE key = 'sim_time'").run(
-      JSON.stringify(this.simTime.toISOString())
+      JSON.stringify(this.simTime.toISOString()),
     );
   }
 
   private persistState(): void {
     const db = getDb();
     db.prepare("UPDATE settings SET value = ? WHERE key = 'sim_paused'").run(
-      JSON.stringify(this.paused)
+      JSON.stringify(this.paused),
     );
   }
 }

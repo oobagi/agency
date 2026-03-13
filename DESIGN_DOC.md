@@ -2,7 +2,6 @@ Agency Design Document
 
 This document is the authoritative specification for the Agency project. Every implementing agent must read this entire document before writing any code. If a decision conflicts with what is written here, this document wins.
 
-
 HARD CONSTRAINTS
 
 These eight rules are non-negotiable. Any code that violates any of them is wrong and must be changed immediately.
@@ -23,7 +22,6 @@ These eight rules are non-negotiable. Any code that violates any of them is wron
 
 8. The UI is a 3D simulation viewport. There is no global text input or command bar. The user interacts only by clicking agents in the viewport. Clicking an agent opens a side panel with that agent's information and a text input to message that specific agent.
 
-
 PRODUCT VISION
 
 Agency is a persistent background server application that simulates a living software development office populated by autonomous AI agents. The user starts it from the command line and it runs continuously in the background. The user opens http://localhost:PORT in a browser to observe and interact with the simulation. Closing the browser does not pause or stop anything. The server keeps running, agents keep working, and the sim clock keeps ticking.
@@ -31,7 +29,6 @@ Agency is a persistent background server application that simulates a living sof
 The office is populated by AI agents who physically walk around, sit at desks, attend meetings, write code in external Git repositories, open pull requests, and manage teams, entirely without user direction. The user's only job is to give a high-level goal to the Office Manager agent and then watch the simulation unfold. The user never writes code. The user never instructs individual agents directly unless they choose to click one and open a conversation.
 
 This is a simulation first. It is not a chat interface. It is not a code editor. It is not an IDE.
-
 
 AGENT HIERARCHY AND AUTONOMY MODEL
 
@@ -45,7 +42,6 @@ Regular Agents are individual contributors. They receive tasks from their Team M
 
 All agents follow a daily schedule auto-created at hire time: arrive at 08:00 sim time, lunch break at 12:00, return at 13:00, depart at 17:00.
 
-
 PHYSICAL COMMUNICATION RULES
 
 This section exists because the previous implementation broke this rule repeatedly. Read it carefully.
@@ -55,7 +51,6 @@ Forbidden patterns: event emitters that deliver messages between agent sessions 
 Required patterns: every speak MCP tool call includes proximity detection so that only agents within a defined radius receive the message. The walk_to_agent tool physically moves an agent across the office grid before communication can occur. Meeting rooms check that all invited participant positions match the meeting room location before allowing the meeting session to begin. The World Server validates on every speak call that the speaker and all intended recipients are within proximity range. Speak calls that violate proximity are rejected.
 
 When Agent A needs to communicate with Agent B: Agent A calls walk_to_agent targeting Agent B, the World Server moves Agent A along a path to Agent B's current location, once Agent A arrives and proximity is confirmed, Agent A calls speak, only agents within proximity radius hear the message. There are no exceptions to this flow.
-
 
 USER INTERACTION MODEL
 
@@ -69,7 +64,6 @@ When an agent enters the Blocked state, a visual exclamation mark appears above 
 
 Sim time controls are always visible in the UI, never buried in settings. Required controls: Play, Pause, and a speed multiplier selector offering 1x, 2x, 5x, and 10x. Pausing freezes the sim clock and all agent activity. No sessions spawn, no jobs fire, no movement updates. Resuming picks up exactly where it left off. The speed multiplier adjusts how much sim time advances per real-world tick.
 
-
 AGENTIC PROVIDERS
 
 The system supports two agentic providers: the Claude Agent SDK and the OpenAI Codex API. These are agentic tool-executing environments, not chat completion APIs. Neither requires an API key entered in the UI. Authentication is handled by their respective CLI tools: the Claude Code CLI for the Agent SDK, and the Codex CLI for the OpenAI provider.
@@ -79,7 +73,6 @@ The user configures a default provider and a default model in application settin
 The provider abstraction layer exposes a single interface to the rest of the system regardless of which provider is running underneath. The interface is: spawn a session with a system prompt, assembled context, and an MCP tool list; receive tool calls as the session executes; receive the session completion result. The World Server never calls provider-specific APIs directly. It always goes through the abstraction layer.
 
 For the Claude Agent SDK specifically, all LLM calls must use the Agent SDK query() function. The raw Anthropic SDK is never used directly. For lightweight calls such as summaries or morning briefings, use query() with model haiku, maxTurns 1, allowedTools empty, persistSession false. For full agent task execution, use the provider abstraction which wraps query() with tool support and session management.
-
 
 THE MCP SERVER
 
@@ -96,7 +89,6 @@ Manager-only tools (the World Server validates that the calling agent has a Mana
 State management tools: set_state transitions the agent's state with validation against the legal transition map, report_blocker sets the agent to Blocked state and begins the escalation chain.
 
 The World Server validates all MCP tool calls. It enforces the state machine transition map. It validates manager permissions. It blocks begin_task unless the agent is seated at their desk. It blocks meeting sessions from starting until all participants are physically present in the meeting room.
-
 
 AGENT STATE MACHINE
 
@@ -119,7 +111,6 @@ Key enforcement rules: an agent cannot transition to Programming or Researching 
 
 The transition map must be defined as an explicit data structure in code, not as scattered conditional checks. The set_state MCP tool handler indexes into this map and rejects any transition not present.
 
-
 AUTONOMOUS AGENT LOOPS
 
 This section describes the mandatory behavioral loops that prevent agents from sitting idle. The previous implementation failed because these did not exist.
@@ -132,7 +123,6 @@ Regular Agent idle check-in: if a Regular Agent remains in Idle state with an em
 
 All of these loops are driven by sim time exclusively. No real-world timers drive agent behavior.
 
-
 SIM TIME
 
 Sim time is the only time that matters for all game mechanics. Every scheduled event, job trigger, loop timer, daily schedule, idle timeout, proximity duration, chat bubble display duration, and any other time-based mechanic in the backend uses simulation time exclusively. There are no real-world timers driving agent behavior.
@@ -141,20 +131,17 @@ The only real-world timer is a single Node.js setInterval that advances the sim 
 
 All subsystems that need time, including the scheduled jobs runner, the movement system, the idle check-in timer, the hung session detector, and the chat bubble display timer, read from the sim clock. They never call Date.now() or use real-world time for game logic.
 
-
 SESSION MANAGEMENT AND VISIBILITY
 
 Every agentic session spawned by the World Server is recorded in the database. A session record stores: the agent ID it belongs to, the sim date it was created, the session start sim time, the session end sim time or null if still active, the provider and model used, the full list of tool calls made during the session in chronological order, the input and output of each tool call, the final outcome which is one of completed, interrupted, errored, or hung, and a token count estimate.
 
 Sessions are associated with a specific sim day so the user can browse sessions by day in the Sessions tab of an agent's side panel. Each session is expandable to show all tool calls. Tool calls are rendered as distinct UI elements showing the tool name, arguments, and result. Active sessions stream tool calls in real time via WebSocket.
 
-
 DAILY SESSION INITIALIZATION
 
 Every agent starts a fresh session each sim day. When an agent arrives at their desk in the morning after their Arriving → Walking → Idle transition completes, the World Server initializes a new session with a clean context window. No raw history from the previous day carries over. Instead, the World Server assembles a morning briefing injected into the session context. The briefing contains: the agent's persona system prompt, a summary of what they completed yesterday retrieved from compressed memory, their current task queue, and for Manager agents, a full team status report including agent states, pending PRs, unresolved blockers, and any overnight changes.
 
 This daily reset prevents context bloat from accumulating across multiple sim days and ensures agents start each day focused.
-
 
 CONTEXT WINDOW MANAGEMENT
 
@@ -164,13 +151,11 @@ The Team Manager has two MCP tools for handling this: trigger_compression forces
 
 Context overflow must never cause a silent failure. It is always caught and handled before it becomes a problem. The World Server logs a warning at 70% utilization and escalates to the Team Manager at 80%. If somehow a session reaches 95% without intervention, the World Server force-triggers compression automatically as a safety net.
 
-
 AGENT INTERRUPTION
 
 The user can interrupt any active agent session at any time via the Stop button in the agent's side panel. Pressing Stop sends an interrupt signal to the World Server. The World Server gracefully terminates the active agentic SDK session, commits any partial work in the agent's worktree with an auto-generated interrupt commit message, sets the agent's state to Idle, and logs the interruption in the session record with outcome set to interrupted. The agent does not re-initialize automatically after an interrupt. They wait for their next task assignment or for the user or manager to direct them.
 
 The World Server also detects hung sessions. If an agent session has been running for a configurable duration in sim time without completing a tool call, the World Server automatically interrupts the session, logs it with outcome hung, and sets the agent to Blocked state so the escalation chain handles it. The hung session timeout is configurable and defaults to 30 sim minutes.
-
 
 MEMORY AND TOKEN MANAGEMENT
 
@@ -179,7 +164,6 @@ Session context is assembled by the World Server and bounded strictly. A session
 A session context never includes: full raw chat history beyond the last 10 entries, complete PR diffs (only summaries), other agents' memory or chat logs, out-of-team project information for non-Manager agents.
 
 At task completion and at end of sim day, a compression job runs. The compression job takes the agent's recent activity, generates a natural language summary, embeds the summary using @xenova/transformers running locally, and stores the embedding in sqlite-vss for future vector similarity retrieval. Raw chat logs are retained in the database for the UI but are not re-injected into future session contexts. Only compressed memory summaries are injected.
-
 
 DATABASE
 
@@ -227,7 +211,6 @@ Table: settings. Fields: key (text, primary key), value (text, JSON).
 
 Table: migrations. Fields: id (integer, primary key), name (text), applied_at (text).
 
-
 SCHEDULED JOBS SYSTEM
 
 Scheduled jobs live in SQLite and survive server restarts. On boot, the World Server scans the scheduled_jobs table for any jobs whose sim_time has passed. For each missed job, it checks the missed_policy: fire_immediately means the job is executed immediately upon boot, skip_to_next means the job's sim_time is advanced to its next recurrence and the missed instance is discarded.
@@ -236,26 +219,21 @@ When a scheduled job fires and the target agent is currently busy (not in Idle s
 
 Only Manager agents can create scheduled jobs via the schedule_event MCP tool. Regular agents cannot schedule anything.
 
-
 TEAM COLOR CODING
 
 Each team is assigned a distinct hex color when created by the Office Manager. The color is stored in the teams table. Every agent on that team has their 3D capsule rendered in that team's color in the viewport. The Office Manager and any unassigned agents use a neutral gray. The color assignment should draw from a predefined palette of visually distinct colors that remain distinguishable even when multiple teams are present simultaneously. The palette should avoid colors too close to red (reserved for Blocked state indication) or colors too similar to each other.
-
 
 CONVERSATION HISTORY PANEL
 
 All conversations that occur in the simulation are logged in the conversations, conversation_participants, and conversation_messages tables and accessible from a dedicated Conversations panel in the UI. This includes one-on-one agent interactions, team meetings, group standups, manager briefings, and user-to-agent messages with responses. Each conversation entry shows participants, the sim time it occurred, the conversation type, and the full transcript. The user can browse conversations chronologically and search by participant name, keyword, or conversation type. This panel is separate from the individual agent chat log. The agent chat log shows one agent's messages. The Conversations panel shows all conversations across the entire office.
 
-
 DIFF VIEWER
 
 A read-only panel in the UI showing the current git diff for a selected worktree branch, the list of recent commits on that branch, open PRs for that worktree, and full PR diffs. No editing capability. No code interaction from Agency's side. The diff viewer reads from the external Git repos on disk using simple-git but never writes to them. Agency tracks metadata only.
 
-
 PROJECT AND TEAM STRUCTURE
 
 The Office Manager autonomously creates projects, which are new external Git repos initialized on disk via simple-git. Each project gets a record in the projects table with its absolute disk path. The Office Manager creates teams, assigns teams to projects, and creates worktrees for each team in their assigned project repo. Teams are fully isolated: no shared context, no cross-team communication without a physical inter-team meeting brokered by the Office Manager. Team agents can only see their own team's worktree, tasks, and PRs. The Office Manager is the only agent with visibility across all teams and projects.
-
 
 PERSONA SYSTEM
 

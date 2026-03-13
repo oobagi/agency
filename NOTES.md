@@ -2,7 +2,6 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-
 Phase 1.0 — Project Scaffold and Monorepo Structure
 
 Date completed: 2026-03-13
@@ -11,7 +10,6 @@ What was skipped or deferred: Nothing.
 Deviations from the spec and why: None.
 Issues encountered: esbuild post-install scripts were blocked by pnpm's default security policy. Resolved by adding onlyBuiltDependencies to pnpm-workspace.yaml.
 Notes for the next agent: Server entry point is packages/server/src/index.ts with a bare http.createServer. Install better-sqlite3 and build the database layer there. The server listens on PORT env var (default 3001). Client Vite proxy is already configured to forward /api and /ws to the server.
-
 
 Phase 1.1 — Database Schema and Migration Runner
 
@@ -22,7 +20,6 @@ Deviations from the spec and why: None.
 Issues encountered: better-sqlite3 native bindings required adding it to onlyBuiltDependencies in pnpm-workspace.yaml (same pattern as esbuild from Phase 1.0). The migrations table needed CREATE TABLE IF NOT EXISTS in the migration file since the runner bootstraps it before running migrations.
 Notes for the next agent: Import getDb() from ./db.js to access the database. The DB file path defaults to agency.db in cwd, overridable via AGENCY_DB_PATH env var. Migrations are TypeScript modules in src/migrations/ exporting { name, up(db) }. Register new migrations in src/migrations/index.ts.
 
-
 Phase 2.0 — Sim Clock and Tick Loop
 
 Date completed: 2026-03-13
@@ -31,7 +28,6 @@ What was skipped or deferred: Nothing.
 Deviations from the spec and why: None.
 Issues encountered: None.
 Notes for the next agent: Import SimClock and call clock.onTick(callback) to subscribe to tick events. clock.now() returns the current sim Date. The sim starts at 2026-01-01T07:00:00Z on first run. WebSocket clients receive JSON messages with type "tick" on each tick. Speed is validated to 1-10 range.
-
 
 Phase 2.1 — MCP Server with Stub Tool Handlers
 
@@ -42,7 +38,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 2.2 — Persona System
 
 Date completed:
@@ -51,7 +46,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 3.0 — Provider Abstraction Layer
 
@@ -62,7 +56,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 3.1 — Agent Management and Hiring
 
 Date completed:
@@ -71,7 +64,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 3.2 — Session Recording Pipeline
 
@@ -82,7 +74,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 3.3 — Daily Schedule Automation
 
 Date completed:
@@ -91,7 +82,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 4.0 — Office Manager Autonomous Loop
 
@@ -102,7 +92,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 4.1 — Team Manager Autonomous Loop
 
 Date completed:
@@ -111,7 +100,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 4.2 — Regular Agent Idle Check-in and Context Assembly
 
@@ -122,7 +110,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 4.3 — Physical Movement and State Machine
 
 Date completed:
@@ -131,7 +118,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 4.4 — Physical Communication Enforcement
 
@@ -142,7 +128,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 4.5 — Task System
 
 Date completed:
@@ -151,7 +136,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 4.6 — PR System and Git Operations
 
@@ -162,7 +146,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 5.0 — Memory Compression Pipeline
 
 Date completed:
@@ -171,7 +154,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 5.1 — Blocker Detection and Escalation Chain
 
@@ -182,7 +164,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 6.0 — Meeting System with Physical Arrival Gating
 
 Date completed:
@@ -191,7 +172,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 7.0 — 3D Office Viewport
 
@@ -202,7 +182,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 7.1 — Agent Capsule Rendering and Movement Animation
 
 Date completed:
@@ -211,7 +190,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 7.2 — Agent Click Interaction and Side Panel
 
@@ -222,7 +200,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 7.3 — Chat Bubbles with Proximity Display
 
 Date completed:
@@ -231,7 +208,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 7.4 — Conversations Panel
 
@@ -242,7 +218,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 7.5 — Diff Viewer Panel
 
 Date completed:
@@ -251,7 +226,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 7.6 — Schedule Panel and Activity Log
 
@@ -262,7 +236,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 7.7 — Blocked Agent Modal
 
 Date completed:
@@ -272,7 +245,6 @@ Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
 
-
 Phase 8.0 — Agent Interruption UI and Hung Session Handling
 
 Date completed:
@@ -281,7 +253,6 @@ What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
 Notes for the next agent:
-
 
 Phase 8.1 — Hardening and Error Recovery
 

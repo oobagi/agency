@@ -82,7 +82,7 @@ clock.onTick((simTime) => {
 
 clock.start();
 console.log(
-  `Sim clock started: ${clock.now().toISOString()}, speed=${clock.getSpeed()}x, paused=${clock.isPaused()}`
+  `Sim clock started: ${clock.now().toISOString()}, speed=${clock.getSpeed()}x, paused=${clock.isPaused()}`,
 );
 
 server.listen(PORT, () => {

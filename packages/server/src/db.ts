@@ -40,7 +40,7 @@ function runMigrations(database: Database.Database): void {
     database
       .prepare('SELECT name FROM migrations')
       .all()
-      .map((row) => (row as { name: string }).name)
+      .map((row) => (row as { name: string }).name),
   );
 
   for (const migration of migrations) {
@@ -50,10 +50,9 @@ function runMigrations(database: Database.Database): void {
 
     const run = database.transaction(() => {
       migration.up(database);
-      database.prepare('INSERT INTO migrations (name, applied_at) VALUES (?, ?)').run(
-        migration.name,
-        new Date().toISOString()
-      );
+      database
+        .prepare('INSERT INTO migrations (name, applied_at) VALUES (?, ?)')
+        .run(migration.name, new Date().toISOString());
     });
 
     run();

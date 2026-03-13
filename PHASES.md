@@ -4,7 +4,6 @@ This document defines every phase of the Agency build in granular micro-phases n
 
 Every phase includes: a one-sentence goal, context for the implementing agent, exactly what to build, explicit out-of-scope items, testable acceptance criteria, and a handoff note. Read DESIGN_DOC.md in full before starting any phase.
 
-
 Phase 1.0 — Project Scaffold and Monorepo Structure
 
 Goal: establish the monorepo structure, tooling, and dev workflow so all subsequent phases have a consistent foundation.
@@ -18,7 +17,6 @@ Out of scope: any application code, database setup, 3D rendering dependencies, L
 Acceptance criteria: running pnpm install from root succeeds. Running pnpm dev starts both server and client in parallel. The server starts an HTTP listener on a configurable port. The client starts Vite dev server and proxies requests to the server. TypeScript compilation succeeds with zero errors in both packages.
 
 Handoff: the next phase will add the database layer. The server package should already have a src directory with an index.ts entry point that starts the HTTP server.
-
 
 Phase 1.1 — Database Schema and Migration Runner
 
@@ -34,7 +32,6 @@ Acceptance criteria: server starts and creates the SQLite database file. All tab
 
 Handoff: every subsequent server-side phase will import getDb() to access the database. The schema is now the source of truth.
 
-
 Phase 2.0 — Sim Clock and Tick Loop
 
 Goal: implement the simulation clock that is the sole time source for all game mechanics.
@@ -48,7 +45,6 @@ Out of scope: any agent behavior, the scheduled jobs runner (just the clock), 3D
 Acceptance criteria: server starts, sim clock begins ticking. GET /api/sim/status returns correct sim time. POST /api/sim/pause stops the clock. POST /api/sim/resume restarts it. POST /api/sim/speed with multiplier 10 makes time advance 10x faster. WebSocket clients receive sim time broadcasts on every tick. Restarting the server resumes from the persisted sim time, not from zero.
 
 Handoff: every time-dependent system in subsequent phases reads from SimClock.now() and subscribes to tick events. No other timer mechanism should be introduced.
-
 
 Phase 2.1 — MCP Server with Stub Tool Handlers
 
@@ -64,7 +60,6 @@ Acceptance criteria: the MCP server starts without errors. Every tool in the DES
 
 Handoff: subsequent phases will replace stub handlers with real implementations one by one. The tool registry and permission layer are shared infrastructure.
 
-
 Phase 2.2 — Persona System
 
 Goal: fetch and curate agent personas from the agency-agents GitHub repo and store them locally.
@@ -78,7 +73,6 @@ Out of scope: assigning personas to agents (that is done during hiring), any age
 Acceptance criteria: on first server start, personas are fetched from the GitHub repo and stored in the database. GET /api/personas returns at least one persona. The personas table has populated name, bio, system_prompt, and specialties fields. If the GitHub repo is unreachable, previously cached personas are still returned.
 
 Handoff: the hiring flow in Phase 3.1 will pull from the personas table to assign a persona to newly hired agents.
-
 
 Phase 3.0 — Provider Abstraction Layer
 
@@ -94,7 +88,6 @@ Acceptance criteria: ProviderManager.getProvider(agentId) returns the correct pr
 
 Handoff: all subsequent phases that spawn agent sessions use ProviderManager. No phase should directly import a specific provider.
 
-
 Phase 3.1 — Agent Management and Hiring
 
 Goal: implement the hire_agent and fire_agent MCP tool handlers and the agent lifecycle.
@@ -108,7 +101,6 @@ Out of scope: agent movement (Phase 4.0), agent sessions, daily schedules (Phase
 Acceptance criteria: calling hire_agent via MCP with a valid persona_id creates an agent record with the correct persona and Idle state. The new agent has no team, no desk, no task, and no memory. Calling fire_agent removes the agent from their team and desk. create_team creates a team with a color. assign_agent_to_team assigns the agent and allocates a desk.
 
 Handoff: agents now exist in the database but do not move or think. Phase 3.2 will give them sessions. Phase 3.3 will give them daily schedules.
-
 
 Phase 3.2 — Session Recording Pipeline
 
@@ -124,7 +116,6 @@ Acceptance criteria: spawning a session via ProviderManager creates a session re
 
 Handoff: the UI phases will consume these endpoints and WebSocket events to render the Sessions tab.
 
-
 Phase 3.3 — Daily Schedule Automation
 
 Goal: implement the automatic daily schedule that all agents follow and the scheduled jobs infrastructure.
@@ -138,7 +129,6 @@ Out of scope: the Office Manager's autonomous loops (Phase 4.0), Team Manager tr
 Acceptance criteria: when an agent is hired, four daily scheduled jobs appear in the scheduled_jobs table. As sim time advances past 08:00, the arrive job fires and sets the agent to Arriving. At 12:00, the lunch job fires. At 13:00, return fires. At 17:00, depart fires. Missed jobs on restart are handled per their policy. The schedule_event MCP tool creates custom jobs.
 
 Handoff: Phase 4.0 will add the Office Manager's three daily loops as scheduled jobs. Phase 4.1 adds Team Manager triggers. The scheduled jobs runner is now live infrastructure.
-
 
 Phase 4.0 — Office Manager Autonomous Loop
 
@@ -154,7 +144,6 @@ Acceptance criteria: starting the server with no existing agents creates an Offi
 
 Handoff: the Office Manager now drives the simulation. Phase 4.1 adds Team Managers who respond to the Office Manager's delegations.
 
-
 Phase 4.1 — Team Manager Autonomous Loop
 
 Goal: implement Team Manager triggered sessions that assign work, review PRs, and escalate blockers.
@@ -168,7 +157,6 @@ Out of scope: regular agent idle check-in (Phase 4.2), meeting system (Phase 6.0
 Acceptance criteria: when a Team Manager arrives at their desk, a session fires automatically. When a team member completes a task, the Team Manager session fires. When a team member reports a blocker, the Team Manager session fires. The Team Manager's session uses walk_to_agent before communicating with any agent. Session tool calls are recorded.
 
 Handoff: Phase 4.2 adds the idle agent check-in that ensures regular agents are not forgotten.
-
 
 Phase 4.2 — Regular Agent Idle Check-in and Context Assembly
 
@@ -184,7 +172,6 @@ Acceptance criteria: an agent in Idle state with no tasks for 30 sim minutes aut
 
 Handoff: all session-spawning code should now use buildSessionContext. Phase 5.0 will replace the memory stub with real vector search.
 
-
 Phase 4.3 — Physical Movement and State Machine
 
 Goal: implement the agent movement system, pathfinding, position tracking, and the state machine with enforced transitions.
@@ -198,7 +185,6 @@ Out of scope: 3D rendering of movement (UI phases), pathfinding around obstacles
 Acceptance criteria: the state machine rejects invalid transitions with a descriptive error. An agent cannot enter Programming without being at their desk. walk_to_agent moves an agent's position toward the target agent over multiple ticks. Proximity detection correctly identifies nearby agents. speak only delivers messages to agents within proximity radius. Movement speed is consistent with sim time regardless of speed multiplier.
 
 Handoff: physical communication is now enforced. All subsequent phases that involve agent-to-agent interaction must use walk then speak.
-
 
 Phase 4.4 — Physical Communication Enforcement
 
@@ -214,7 +200,6 @@ Acceptance criteria: speak from an agent not within proximity of the target is r
 
 Handoff: physical communication is now bulletproof. Phase 6.0 will add meeting rooms which are a structured form of physical communication.
 
-
 Phase 4.5 — Task System
 
 Goal: implement the task lifecycle from creation through assignment, execution, and completion.
@@ -228,7 +213,6 @@ Out of scope: PR creation from completed tasks (Phase 4.6), the full escalation 
 Acceptance criteria: begin_task fails if the agent is not at their desk. begin_task transitions the agent to Programming and the task to in_progress. Task completion transitions the agent to Idle and fires the Team Manager trigger. report_blocker on a task sets both agent and task to blocked states. REST endpoints return correct task data.
 
 Handoff: Phase 4.6 adds PR creation as the next step after task completion.
-
 
 Phase 4.6 — PR System and Git Operations
 
@@ -244,7 +228,6 @@ Acceptance criteria: create_project initializes a real Git repo on disk. create_
 
 Handoff: the full agentic workflow is now possible: Office Manager creates project → creates team → hires agents → Team Manager assigns tasks → agent works at desk → agent opens PR → Team Manager reviews and merges.
 
-
 Phase 5.0 — Memory Compression Pipeline
 
 Goal: implement the memory compression system that summarizes agent activity and stores embeddings for vector retrieval.
@@ -258,7 +241,6 @@ Out of scope: the checkpoint_agent flow is a simple walk-and-speak handled by th
 Acceptance criteria: at end of sim day, each agent's activity is summarized and stored with an embedding. Vector similarity search against a task description returns relevant past memories. buildSessionContext now injects real memory chunks instead of stubs. trigger_compression creates a new summary mid-session. Context monitoring alerts at 80% and force-compresses at 95%.
 
 Handoff: agents now have persistent memory across sim days. The daily session initialization from Phase 3.3 can now inject yesterday's compressed summary into the morning briefing.
-
 
 Phase 5.1 — Blocker Detection and Escalation Chain
 
@@ -274,7 +256,6 @@ Acceptance criteria: report_blocker transitions agent to Blocked and triggers Te
 
 Handoff: the full autonomous loop is now operational. Agents work, blockers escalate, managers intervene. Phase 6.0 adds meetings and Phase 7.x adds all UI.
 
-
 Phase 6.0 — Meeting System with Physical Arrival Gating
 
 Goal: implement meetings that require all participants to physically arrive before the meeting begins.
@@ -288,7 +269,6 @@ Out of scope: meeting UI rendering in 3D (UI phase), cross-team meetings brokere
 Acceptance criteria: scheduling a meeting creates a scheduled job. When the job fires, all invited agents walk to the meeting room. The meeting does not start until all agents have arrived. The meeting session delivers messages to all present agents. The meeting transcript is recorded in the conversations table. Agents return to their desks after the meeting ends.
 
 Handoff: the core simulation logic is now complete. Everything from here is UI, polish, and hardening.
-
 
 Phase 7.0 — 3D Office Viewport
 
@@ -304,7 +284,6 @@ Acceptance criteria: opening http://localhost:PORT shows a 3D office scene with 
 
 Handoff: Phase 7.1 adds agent capsules to this scene.
 
-
 Phase 7.1 — Agent Capsule Rendering and Movement Animation
 
 Goal: render agents as colored capsules in the 3D scene with smooth movement animation.
@@ -318,7 +297,6 @@ Out of scope: click interaction (Phase 7.2), chat bubbles (Phase 7.3).
 Acceptance criteria: all agents in the database appear as colored capsules in the viewport. Capsule colors match team colors. Agents moving in the simulation animate smoothly. Name labels are visible. Blocked agents show a red exclamation mark. The Office Manager is visually distinct (neutral color).
 
 Handoff: Phase 7.2 adds click interaction so the user can actually interact with these capsules.
-
 
 Phase 7.2 — Agent Click Interaction and Side Panel
 
@@ -334,7 +312,6 @@ Acceptance criteria: clicking an agent in the viewport opens a side panel. The p
 
 Handoff: the core interaction model is now live. The user can observe and communicate with agents.
 
-
 Phase 7.3 — Chat Bubbles with Proximity Display
 
 Goal: show speech bubbles above agents when they speak, visible only when the camera is close enough.
@@ -348,7 +325,6 @@ Out of scope: message filtering, the Conversations panel.
 Acceptance criteria: when an agent speaks, a chat bubble appears above them in the viewport. Bubbles display the message text. Bubbles disappear after a sim-time duration. Bubbles use billboard rendering to always face the camera.
 
 Handoff: the viewport now shows both movement and communication visually.
-
 
 Phase 7.4 — Conversations Panel
 
@@ -364,7 +340,6 @@ Acceptance criteria: the Conversations panel lists all conversations in the simu
 
 Handoff: the user now has full visibility into all office communication.
 
-
 Phase 7.5 — Diff Viewer Panel
 
 Goal: build the read-only diff viewer for browsing worktree changes, commits, and PRs.
@@ -378,7 +353,6 @@ Out of scope: code editing, code navigation, cross-project views.
 Acceptance criteria: the diff viewer shows real Git diffs from project worktrees. Commits are listed chronologically. PRs are listed with status. PR diffs are viewable with syntax coloring. No write operations are possible through this panel.
 
 Handoff: the user can now observe what agents are building without leaving the Agency UI.
-
 
 Phase 7.6 — Schedule Panel and Activity Log
 
@@ -394,7 +368,6 @@ Acceptance criteria: the schedule panel shows today's scheduled events as a time
 
 Handoff: the user now has timeline and log-based views of simulation activity.
 
-
 Phase 7.7 — Blocked Agent Modal
 
 Goal: implement the guided resolution modal for blocked agents.
@@ -409,7 +382,6 @@ Acceptance criteria: clicking a blocked agent shows a modal with the blocker des
 
 Handoff: the UI is now functionally complete. Phase 8.x handles hardening.
 
-
 Phase 8.0 — Agent Interruption UI and Hung Session Handling
 
 Goal: ensure the Stop button and hung session detection work end-to-end through the UI.
@@ -423,7 +395,6 @@ Out of scope: configuring the hung session timeout from UI (use server config).
 Acceptance criteria: pressing Stop during an active session terminates it and the agent returns to Idle within a few seconds. The session shows as interrupted in the Sessions tab. A hung session is automatically detected, interrupted, and the agent is set to Blocked. The blocked agent modal shows the hung session as the blocker cause.
 
 Handoff: Phase 8.1 handles the remaining hardening tasks.
-
 
 Phase 8.1 — Hardening and Error Recovery
 
