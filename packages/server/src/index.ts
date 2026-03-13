@@ -3,6 +3,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { initDb, closeDb } from './db.js';
 import { SimClock } from './sim-clock.js';
 import { handleMcpRequest, closeMcpSessions } from './mcp/server.js';
+import { fetchAndStorePersonas, getPersonas, refreshPersonas } from './personas.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -52,6 +53,20 @@ const server = http.createServer(async (req, res) => {
     return json(res, { paused: false });
   }
 
+  if (url === '/api/personas' && method === 'GET') {
+    return json(res, getPersonas());
+  }
+
+  if (url === '/api/personas/refresh' && method === 'POST') {
+    try {
+      const result = await refreshPersonas();
+      return json(res, result);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Refresh failed';
+      return json(res, { error: message }, 500);
+    }
+  }
+
   if (url === '/api/sim/speed' && method === 'POST') {
     try {
       const body = JSON.parse(await readBody(req));
@@ -90,6 +105,11 @@ clock.onTick((simTime) => {
 clock.start();
 console.log(
   `Sim clock started: ${clock.now().toISOString()}, speed=${clock.getSpeed()}x, paused=${clock.isPaused()}`,
+);
+
+// Fetch personas in the background so server starts immediately
+fetchAndStorePersonas().catch((err) =>
+  console.error('[personas] Startup fetch failed:', err),
 );
 
 server.listen(PORT, () => {

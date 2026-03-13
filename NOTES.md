@@ -40,12 +40,12 @@ Notes for the next agent: Import createMcpServer from ./mcp/server.js to get a f
 
 Phase 2.2 — Persona System
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Persona fetcher module (src/personas.ts) that clones the agency-agents GitHub repo (https://github.com/msitarzewski/agency-agents.git) to a local cache in os.tmpdir(), parses markdown files with YAML frontmatter from relevant directories (engineering, testing, design, product, project-management), extracts name/bio/system_prompt/specialties, and upserts into the personas table. Specialty detection via keyword matching classifies personas into frontend, backend, devops, testing, design, and architecture. 49 personas stored covering all 6 specialty categories. REST endpoints: GET /api/personas returns all personas with parsed specialties array, POST /api/personas/refresh re-fetches from GitHub. Persona fetch runs in background on server startup.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: No fallback/caching layer — the repo is public and available; if it's unreachable, the error propagates normally. Repo URL configurable via AGENCY_AGENTS_REPO env var.
+Issues encountered: None.
+Notes for the next agent: Import getPersonas() from ./personas.js to query stored personas. Each persona has: id (sha256 hash of path), name, github_username (filename slug), bio (frontmatter description), system_prompt (full markdown body), specialties (JSON array). The hiring flow in Phase 3.1 should pull from this table to assign personas to new agents.
 
 Phase 3.0 — Provider Abstraction Layer
 
