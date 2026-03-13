@@ -15,12 +15,12 @@ Notes for the next agent: Server entry point is packages/server/src/index.ts wit
 
 Phase 1.1 — Database Schema and Migration Runner
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: SQLite database layer using better-sqlite3 with WAL mode and foreign keys enabled. Migration runner in src/db.ts that checks a migrations table for applied migrations and runs unapplied ones inside transactions. Initial migration (src/migrations/001_initial_schema.ts) creates all 21 tables from DESIGN_DOC.md: agents, personas, teams, projects, worktrees, tasks, pull_requests, agent_memory, chat_logs, conversations, conversation_participants, conversation_messages, sessions, session_tool_calls, scheduled_jobs, job_queue, desks, meeting_rooms, office_layout, settings, and migrations. All tables have correct columns, types, CHECK constraints, and foreign keys matching the spec. Settings table seeded with defaults: default_provider=claude_agent_sdk, default_model=claude-sonnet-4-20250514, sim_speed=1, sim_paused=false. Server entry point (src/index.ts) calls initDb() on startup and closeDb() on SIGINT/SIGTERM. getDb() exported as singleton accessor.
+What was skipped or deferred: sqlite-vss setup (deferred to Phase 5.0 per spec).
+Deviations from the spec and why: None.
+Issues encountered: better-sqlite3 native bindings required adding it to onlyBuiltDependencies in pnpm-workspace.yaml (same pattern as esbuild from Phase 1.0). The migrations table needed CREATE TABLE IF NOT EXISTS in the migration file since the runner bootstraps it before running migrations.
+Notes for the next agent: Import getDb() from ./db.js to access the database. The DB file path defaults to agency.db in cwd, overridable via AGENCY_DB_PATH env var. Migrations are TypeScript modules in src/migrations/ exporting { name, up(db) }. Register new migrations in src/migrations/index.ts.
 
 
 Phase 2.0 — Sim Clock and Tick Loop
