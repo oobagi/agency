@@ -25,12 +25,12 @@ Notes for the next agent: Import getDb() from ./db.js to access the database. Th
 
 Phase 2.0 — Sim Clock and Tick Loop
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: SimClock class (src/sim-clock.ts) with now(), pause(), resume(), setSpeed(), onTick(), start(), stop() methods. Single setInterval drives tick loop at 1s real-world intervals, advancing sim time by (speed × 1) sim seconds per tick. Sim time persists to settings table (sim_time key) and is restored on restart. Speed and paused state also persist. REST endpoints: GET /api/sim/status (returns simTime, speed, paused), POST /api/sim/pause, POST /api/sim/resume, POST /api/sim/speed (accepts {multiplier: 1-10}). WebSocket server (ws library) attached to HTTP server, broadcasts tick events ({type, simTime, speed, paused}) to all connected clients on every tick. Server entry point wires up clock, REST routing, and graceful shutdown (clock.stop(), wss.close(), closeDb()).
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: None.
+Issues encountered: None.
+Notes for the next agent: Import SimClock and call clock.onTick(callback) to subscribe to tick events. clock.now() returns the current sim Date. The sim starts at 2026-01-01T07:00:00Z on first run. WebSocket clients receive JSON messages with type "tick" on each tick. Speed is validated to 1-10 range.
 
 
 Phase 2.1 — MCP Server with Stub Tool Handlers

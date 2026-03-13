@@ -1,15 +1,89 @@
 import http from 'node:http';
+import { WebSocketServer, WebSocket } from 'ws';
 import { initDb, closeDb } from './db.js';
+import { SimClock } from './sim-clock.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
-const db = initDb();
+initDb();
 console.log('Database initialized');
 
-const server = http.createServer((_req, res) => {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ status: 'ok' }));
+const clock = new SimClock();
+
+function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
+  });
+}
+
+function json(res: http.ServerResponse, data: unknown, status = 200): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(data));
+}
+
+const server = http.createServer(async (req, res) => {
+  const { method, url } = req;
+
+  if (url === '/api/sim/status' && method === 'GET') {
+    return json(res, {
+      simTime: clock.now().toISOString(),
+      speed: clock.getSpeed(),
+      paused: clock.isPaused(),
+    });
+  }
+
+  if (url === '/api/sim/pause' && method === 'POST') {
+    clock.pause();
+    return json(res, { paused: true });
+  }
+
+  if (url === '/api/sim/resume' && method === 'POST') {
+    clock.resume();
+    return json(res, { paused: false });
+  }
+
+  if (url === '/api/sim/speed' && method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const multiplier = body.multiplier;
+      if (typeof multiplier !== 'number') {
+        return json(res, { error: 'multiplier must be a number' }, 400);
+      }
+      clock.setSpeed(multiplier);
+      return json(res, { speed: multiplier });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: message }, 400);
+    }
+  }
+
+  json(res, { status: 'ok' });
 });
+
+// WebSocket server attached to the HTTP server
+const wss = new WebSocketServer({ server });
+
+clock.onTick((simTime) => {
+  const message = JSON.stringify({
+    type: 'tick',
+    simTime: simTime.toISOString(),
+    speed: clock.getSpeed(),
+    paused: clock.isPaused(),
+  });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
+clock.start();
+console.log(
+  `Sim clock started: ${clock.now().toISOString()}, speed=${clock.getSpeed()}x, paused=${clock.isPaused()}`
+);
 
 server.listen(PORT, () => {
   console.log(`Agency server listening on http://localhost:${PORT}`);
@@ -17,6 +91,8 @@ server.listen(PORT, () => {
 
 function shutdown() {
   console.log('Shutting down...');
+  clock.stop();
+  wss.close();
   server.close();
   closeDb();
   process.exit(0);
