@@ -1,6 +1,6 @@
 import { getDb } from './db.js';
 import { providerManager } from './providers/manager.js';
-import { SessionRecorder, getActiveSessionForAgent } from './session-recorder.js';
+import { SessionRecorder, claimSessionSlot, releaseSessionSlot } from './session-recorder.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
 import { resetIdleTimer } from './idle-checker.js';
 
@@ -51,15 +51,15 @@ Be proactive. Check on idle agents, review pending PRs, and keep your team produ
 // ── Trigger: Team Manager desk arrival ─────────────────────────────
 
 export function triggerTMDeskArrival(tmAgentId: string): void {
-  // Don't spawn if already in a session
-  if (getActiveSessionForAgent(tmAgentId)) {
+  if (!claimSessionSlot(tmAgentId)) {
     console.log(
-      `[team-manager] ${tmAgentId} already has active session, skipping desk arrival trigger`,
+      `[team-manager] ${tmAgentId} already has active/spawning session, skipping desk arrival`,
     );
     return;
   }
 
   spawnTMSession(tmAgentId, 'desk_arrival').catch((err) => {
+    releaseSessionSlot(tmAgentId);
     console.error(`[team-manager] Desk arrival session failed for ${tmAgentId}:`, err);
   });
 }
@@ -81,9 +81,9 @@ export function triggerTMTaskComplete(teamId: string, agentId: string, taskTitle
     return;
   }
 
-  if (getActiveSessionForAgent(tm.id)) {
+  if (!claimSessionSlot(tm.id)) {
     console.log(
-      `[team-manager] ${tm.id} already has active session, skipping task complete trigger`,
+      `[team-manager] ${tm.id} already has active/spawning session, skipping task complete`,
     );
     return;
   }
@@ -92,6 +92,7 @@ export function triggerTMTaskComplete(teamId: string, agentId: string, taskTitle
     completedBy: agentId,
     taskTitle,
   }).catch((err) => {
+    releaseSessionSlot(tm.id);
     console.error(`[team-manager] Task complete session failed for ${tm.id}:`, err);
   });
 }
@@ -116,8 +117,10 @@ export function triggerTMBlockerReport(
     return;
   }
 
-  if (getActiveSessionForAgent(tm.id)) {
-    console.log(`[team-manager] ${tm.id} already has active session, skipping blocker trigger`);
+  if (!claimSessionSlot(tm.id)) {
+    console.log(
+      `[team-manager] ${tm.id} already has active/spawning session, skipping blocker trigger`,
+    );
     return;
   }
 
@@ -126,6 +129,7 @@ export function triggerTMBlockerReport(
     blockerDescription: description,
     ...(blockerId ? { blockerId } : {}),
   }).catch((err) => {
+    releaseSessionSlot(tm.id);
     console.error(`[team-manager] Blocker session failed for ${tm.id}:`, err);
   });
 }
@@ -161,16 +165,22 @@ async function spawnTMSession(
 
   console.log(`[team-manager] Spawning session for ${tm.name} (trigger=${trigger})`);
 
-  const session = await provider.spawnSession({
-    agentId: tmId,
-    systemPrompt: persona,
-    context,
-    mcpTools,
-    provider: provider.name,
-    model,
-  });
+  try {
+    const session = await provider.spawnSession({
+      agentId: tmId,
+      systemPrompt: persona,
+      context,
+      mcpTools,
+      provider: provider.name,
+      model,
+    });
 
-  new SessionRecorder(session, provider.name, model, simNowFn);
+    // Record the session (constructor releases spawning guard)
+    new SessionRecorder(session, provider.name, model, simNowFn);
+  } catch (err) {
+    releaseSessionSlot(tmId);
+    throw err;
+  }
 }
 
 // ── Build Team Manager context ─────────────────────────────────────

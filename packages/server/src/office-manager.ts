@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
 import { providerManager } from './providers/manager.js';
-import { SessionRecorder, getActiveSessionForAgent } from './session-recorder.js';
+import { SessionRecorder, claimSessionSlot, releaseSessionSlot } from './session-recorder.js';
 import { registerJobHandler, createDailyScheduleForAgent } from './scheduler.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
 import { buildSessionContext } from './context-assembly.js';
@@ -139,8 +139,14 @@ function handleOMSession(
   _payload: Record<string, unknown>,
   _simTime: Date,
 ): boolean {
+  if (!claimSessionSlot(agentId)) {
+    console.log(`[office-manager] ${agentId} already has active/spawning session, skipping`);
+    return true;
+  }
+
   // Fire-and-forget: spawn the session asynchronously
   spawnOMSession(agentId).catch((err) => {
+    releaseSessionSlot(agentId);
     console.error('[office-manager] Session spawn failed:', err);
   });
   return true;
@@ -158,17 +164,22 @@ async function spawnOMSession(omId: string): Promise<void> {
 
   console.log(`[office-manager] Spawning session (model=${model})`);
 
-  const session = await provider.spawnSession({
-    agentId: omId,
-    systemPrompt: OFFICE_MANAGER_PERSONA,
-    context,
-    mcpTools,
-    provider: provider.name,
-    model,
-  });
+  try {
+    const session = await provider.spawnSession({
+      agentId: omId,
+      systemPrompt: OFFICE_MANAGER_PERSONA,
+      context,
+      mcpTools,
+      provider: provider.name,
+      model,
+    });
 
-  // Record the session
-  new SessionRecorder(session, provider.name, model, simNowFn);
+    // Record the session (constructor releases spawning guard)
+    new SessionRecorder(session, provider.name, model, simNowFn);
+  } catch (err) {
+    releaseSessionSlot(omId);
+    throw err;
+  }
 }
 
 // ── Build Office Manager context ───────────────────────────────────
@@ -381,19 +392,34 @@ function buildOMContext(omId: string): string {
     );
   }
 
-  // User messages (from chat_logs where speaker_type = 'user' and agent_id = OM)
-  const userMessages = db
+  // Conversation history (user messages + your own replies)
+  const chatHistory = db
     .prepare(
-      `SELECT * FROM chat_logs
-       WHERE agent_id = ? AND speaker_type = 'user'
-       ORDER BY created_at DESC LIMIT 10`,
+      `SELECT cl.*, a.name as speaker_name FROM chat_logs cl
+       LEFT JOIN agents a ON cl.speaker_id = a.id
+       WHERE cl.agent_id = ?
+       ORDER BY cl.created_at DESC LIMIT 20`,
     )
-    .all(omId) as Array<{ message: string; sim_time: string }>;
-  if (userMessages.length > 0) {
+    .all(omId) as Array<{
+    message: string;
+    speaker_name: string | null;
+    speaker_type: string;
+    sim_time: string;
+  }>;
+  if (chatHistory.length > 0) {
+    const hasUserMessages = chatHistory.some((cl) => cl.speaker_type === 'user');
     sections.push(
-      '## User Messages\nThe user has sent you the following messages:\n' +
-        userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n') +
-        '\n\n**Use the `reply_to_user` tool to respond to the user directly.**',
+      '## Conversation History\n' +
+        chatHistory
+          .reverse()
+          .map((cl) => {
+            const speaker = cl.speaker_type === 'user' ? '**User**' : (cl.speaker_name ?? 'You');
+            return `- [${cl.sim_time}] ${speaker}: ${cl.message}`;
+          })
+          .join('\n') +
+        (hasUserMessages
+          ? '\n\n**Use the `reply_to_user` tool to respond to the user. Do NOT repeat what you already said above.**'
+          : ''),
     );
   }
 
@@ -428,7 +454,7 @@ function buildOMContext(omId: string): string {
 // ── Trigger immediate session on user message ─────────────────────
 
 export function triggerUserMessageSession(agentId: string): void {
-  if (getActiveSessionForAgent(agentId)) {
+  if (!claimSessionSlot(agentId)) {
     console.log(`[user-message] Agent ${agentId} already in session, message will be picked up`);
     return;
   }
@@ -437,14 +463,19 @@ export function triggerUserMessageSession(agentId: string): void {
   const agent = db.prepare('SELECT role FROM agents WHERE id = ?').get(agentId) as
     | { role: string }
     | undefined;
-  if (!agent) return;
+  if (!agent) {
+    releaseSessionSlot(agentId);
+    return;
+  }
 
   if (agent.role === 'office_manager') {
     spawnOMSession(agentId).catch((err) => {
+      releaseSessionSlot(agentId);
       console.error('[user-message] OM session failed:', err);
     });
   } else {
     spawnAgentSession(agentId).catch((err) => {
+      releaseSessionSlot(agentId);
       console.error('[user-message] Agent session failed:', err);
     });
   }
@@ -470,16 +501,21 @@ async function spawnAgentSession(agentId: string): Promise<void> {
 
   console.log(`[user-message] Spawning session for ${agentId} (role=${agent.role})`);
 
-  const session = await provider.spawnSession({
-    agentId,
-    systemPrompt: agent.persona,
-    context,
-    mcpTools,
-    provider: provider.name,
-    model,
-  });
+  try {
+    const session = await provider.spawnSession({
+      agentId,
+      systemPrompt: agent.persona,
+      context,
+      mcpTools,
+      provider: provider.name,
+      model,
+    });
 
-  new SessionRecorder(session, provider.name, model, simNowFn);
+    new SessionRecorder(session, provider.name, model, simNowFn);
+  } catch (err) {
+    releaseSessionSlot(agentId);
+    throw err;
+  }
 }
 
 // ── User message to agent ─────────────────────────────────────────
