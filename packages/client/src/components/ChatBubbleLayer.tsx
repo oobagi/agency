@@ -57,7 +57,7 @@ export function ChatBubbleLayer({ bubbles, agents }: ChatBubbleLayerProps) {
 
         return (
           <group key={bubble.id} position={[agent.targetX, 0, agent.targetZ]}>
-            <Html position={[0, 2.4, 0]} center distanceFactor={15} zIndexRange={[100, 0]}>
+            <Html position={[0, 2.4, 0]} center distanceFactor={15} zIndexRange={[0, 0]}>
               <BubbleContent bubble={bubble} />
             </Html>
           </group>
