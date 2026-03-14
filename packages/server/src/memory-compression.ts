@@ -142,14 +142,18 @@ ${activityDump}`;
 
   // Insert into vss index if available
   if (isVssAvailable()) {
-    const row = db.prepare('SELECT rowid FROM agent_memory WHERE id = ?').get(memoryId) as {
-      rowid: number;
-    };
+    try {
+      const row = db.prepare('SELECT rowid FROM agent_memory WHERE id = ?').get(memoryId) as {
+        rowid: number;
+      };
 
-    db.prepare('INSERT INTO vss_agent_memory(rowid, embedding) VALUES (?, ?)').run(
-      row.rowid,
-      embeddingBuf,
-    );
+      db.prepare('INSERT INTO vss_agent_memory(rowid, embedding) VALUES (?, ?)').run(
+        row.rowid,
+        embeddingBuf,
+      );
+    } catch (err) {
+      console.warn('[memory-compression] VSS index insert failed (non-fatal):', err);
+    }
   }
 
   console.log(`[memory-compression] Compressed memory for ${agentId} on ${simDay}`);
@@ -173,18 +177,39 @@ export async function searchSimilarMemories(
       const queryEmbedding = await generateEmbedding(queryText);
       const queryBuf = embeddingToBuffer(queryEmbedding);
 
+      // sqlite-vss requires LIMIT directly on the vss_search query — no JOINs allowed.
+      // Two-step: get candidate rowids from vss, then filter by agent_id.
+      const vssRows = db
+        .prepare(
+          `SELECT rowid, distance FROM vss_agent_memory WHERE vss_search(embedding, ?) LIMIT 50`,
+        )
+        .all(queryBuf) as Array<{ rowid: number; distance: number }>;
+
+      if (vssRows.length === 0) return [];
+
+      const rowids = vssRows.map((r) => r.rowid);
+      const placeholders = rowids.map(() => '?').join(',');
       const results = db
         .prepare(
-          `SELECT am.content, am.sim_day
-           FROM vss_agent_memory v
-           INNER JOIN agent_memory am ON am.rowid = v.rowid
-           WHERE vss_search(v.embedding, ?)
-             AND am.agent_id = ?
-           LIMIT ?`,
+          `SELECT content, sim_day FROM agent_memory
+           WHERE rowid IN (${placeholders}) AND agent_id = ?
+           ORDER BY rowid`,
         )
-        .all(queryBuf, agentId, limit) as Array<{ content: string; sim_day: string }>;
+        .all(...rowids, agentId) as Array<{ content: string; sim_day: string }>;
 
-      return results;
+      // Re-sort by vss distance (closest first)
+      const distanceMap = new Map(vssRows.map((r) => [r.rowid, r.distance]));
+      const rowIdLookup = db
+        .prepare(
+          `SELECT rowid, id FROM agent_memory WHERE rowid IN (${placeholders}) AND agent_id = ?`,
+        )
+        .all(...rowids, agentId) as Array<{ rowid: number; id: string }>;
+
+      return results
+        .map((r, i) => ({ ...r, dist: distanceMap.get(rowIdLookup[i]?.rowid) ?? Infinity }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, limit)
+        .map(({ content, sim_day }) => ({ content, sim_day }));
     } catch (err) {
       console.warn('[memory-compression] VSS search failed, falling back to recency:', err);
     }
