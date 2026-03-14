@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/hud.tsx","./src/components/officefloor.tsx","./src/components/officefurniture.tsx","./src/components/officescene.tsx","./src/components/officewalls.tsx","./src/hooks/useofficelayout.ts","./src/hooks/usewebsocket.ts"],"version":"5.9.3"}
