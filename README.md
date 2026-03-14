@@ -26,7 +26,7 @@ Open [http://localhost:3001](http://localhost:3001) in your browser.
 ## How It Works
 
 1. The **Office Manager** wakes up on a sim-time schedule and evaluates the world
-2. It creates projects (real Git repos), hires agents from a persona pool, forms teams, and delegates work
+2. It creates projects (real Git repos), hires agents from [a pool of personas](https://github.com/msitarzewski/agency-agents), forms teams, and delegates work
 3. **Team Managers** assign tasks, review PRs, and handle blockers within their teams
 4. **Agents** walk to their desks, run agentic coding sessions via MCP tools, and open PRs when done
 5. Failures escalate: Agent -> Team Manager -> Office Manager -> You (last resort)
