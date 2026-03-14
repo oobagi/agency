@@ -2,26 +2,9 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Completed Phases (Summary)
+Completed Phases (1.0–4.6)
 
 Full specs for completed phases are in the git history. See @NOTES_COMPLETED.md for implementation details.
-
-- **Phase 1.0** — Project scaffold: pnpm monorepo, server + client packages, TypeScript strict, ESLint, Prettier.
-- **Phase 1.1** — Database: SQLite via better-sqlite3, WAL mode, 21 tables, migration runner, `getDb()` singleton.
-- **Phase 2.0** — Sim clock: `SimClock` class, tick loop, REST endpoints, WebSocket broadcasts, persistent sim time.
-- **Phase 2.1** — MCP server: 24 tools with Zod v4 schemas, StreamableHTTP transport, permission validation, stub handlers.
-- **Phase 2.2** — Personas: 49 personas from agency-agents repo, specialty classification, REST endpoints.
-- **Phase 3.0** — Provider abstraction: `AgenticProvider` interface, `ClaudeAgentSdkProvider` (Agent SDK `query()`), `CodexProvider` (placeholder), `ProviderManager`, `lightweightQuery()`.
-- **Phase 3.1** — Agent management: `hire_agent`, `fire_agent`, `create_team`, `assign_agent_to_team` real handlers, desk allocation, REST endpoints.
-- **Phase 3.2** — Session recording: `SessionRecorder` class, DB persistence, WebSocket broadcasts, interrupt support.
-- **Phase 3.3** — Daily schedule: scheduler with `processTick()`, 4 daily jobs per agent, missed job handling, `schedule_event` tool.
-- **Phase 4.0** — Office Manager: singleton OM agent, 3 autonomous sessions (08:05, 13:05, 17:00), rich context builder, user message system.
-- **Phase 4.1** — Team Manager: 3 triggers (desk arrival, task complete, blocker report), team-scoped context, duplicate session guard.
-- **Phase 4.2** — Context assembly: `buildSessionContext()`, idle checker (30 sim-min threshold), role-filtered tools, ~100k token budget.
-- **Phase 4.3** — Movement & state machine: `TRANSITION_MAP`, position enforcement, 60Hz decoupled render loop, proximity detection (2.5 units), walk handlers, `set_state`.
-- **Phase 4.4** — Physical communication: `speak` with proximity enforcement, `send_to_manager` with auto-walk, conversation recording system, WebSocket speak broadcast.
-- **Phase 4.5** — Task system: `create_task`, `begin_task`, `complete_task`, `report_blocker` handlers, task lifecycle (pending → in_progress → completed/blocked), TM triggers on completion/blocker.
-- **Phase 4.6** — PR system & Git ops: `create_project`, `delete_project`, `assign_team_to_project`, `create_worktree`, `commit_work`, `open_pull_request`, `review_pull_request`, `merge_pull_request` via simple-git. Hard constraint 7 enforced.
 
 Upcoming Phases
 
