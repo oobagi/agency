@@ -150,6 +150,7 @@ async function main() {
 
   // Hire a team manager
   let tmId = '';
+  let worktreeId = '';
   if (persona) {
     const tmResult = await call(
       'hire_agent',
@@ -191,7 +192,7 @@ async function main() {
     );
     assert(!wt.isError, 'create_worktree succeeds');
     assert(fs.existsSync(wt.data.worktree_path), 'Worktree directory created on disk');
-    const worktreeId = wt.data.worktree_id;
+    worktreeId = wt.data.worktree_id;
 
     console.log('\n=== Phase 4.5: Task System ===');
 
@@ -570,6 +571,56 @@ async function main() {
   // setConversationBroadcast exists
   const { setConversationBroadcast } = await import('../src/handlers/communication.js');
   assert(typeof setConversationBroadcast === 'function', 'setConversationBroadcast is exported');
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.5: Diff Viewer API
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.5: Diff Viewer API ===');
+
+  const {
+    getWorktreeDiff,
+    getWorktreeCommits,
+    getWorktrees: getWts,
+    getProjectPRs,
+    getPRDetails,
+  } = await import('../src/handlers/git-operations.js');
+
+  // Worktree diff
+  const wtDiff = await getWorktreeDiff(worktreeId);
+  assert(wtDiff !== undefined, 'getWorktreeDiff returns result for valid worktree');
+  assert(typeof wtDiff!.diff === 'string', 'Worktree diff is a string');
+  assert(typeof wtDiff!.branch === 'string', 'Worktree diff includes branch name');
+
+  // Worktree diff for invalid ID
+  const noWtDiff = await getWorktreeDiff('nonexistent');
+  assert(noWtDiff === undefined, 'getWorktreeDiff returns undefined for invalid worktree');
+
+  // Worktree commits
+  const wtCommits = await getWorktreeCommits(worktreeId);
+  assert(wtCommits !== undefined, 'getWorktreeCommits returns result for valid worktree');
+  assert(Array.isArray(wtCommits!.commits), 'Worktree commits is an array');
+  assert(wtCommits!.commits.length > 0, 'Worktree has at least one commit');
+  assert(typeof wtCommits!.commits[0].hash === 'string', 'Commit has hash');
+  assert(typeof wtCommits!.commits[0].message === 'string', 'Commit has message');
+
+  // Worktree commits for invalid ID
+  const noWtCommits = await getWorktreeCommits('nonexistent');
+  assert(noWtCommits === undefined, 'getWorktreeCommits returns undefined for invalid worktree');
+
+  // Worktrees list
+  const allWts = getWts(projectId);
+  assert(allWts.length > 0, 'getWorktrees returns worktrees for project');
+
+  // Project PRs
+  const projectPrs = getProjectPRs(projectId);
+  assert(projectPrs.length > 0, 'getProjectPRs returns PRs');
+
+  // PR details with diff
+  const prId = (projectPrs[0] as Record<string, unknown>).id as string;
+  const prDetail = await getPRDetails(prId);
+  assert(prDetail !== undefined, 'getPRDetails returns result');
+  assert(typeof prDetail!.diff === 'string' || prDetail!.diff === null, 'PR detail has diff field');
+  assert(prDetail!.pr !== undefined, 'PR detail has pr field');
 
   console.log('\n=== Delete project ===');
   const del = await call('delete_project', { project_id: projectId }, omId);

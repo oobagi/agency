@@ -46,15 +46,9 @@ Key facts from completed phases:
 - GET /api/conversations supports search, type, participant, limit, offset query params; returns { conversations, total }
 - conversation_new WebSocket event broadcasts new conversations with conversationType, participant_names, first_message
 - Integration tests use dynamic imports to set AGENCY_DB_PATH before db module loads
-
-Phase 7.5 — Diff Viewer Panel
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- DiffViewerPanel: left-side 520px panel, toggled from HUD "Projects" button
+- GET /api/worktrees/:id/diff and GET /api/worktrees/:id/commits endpoints
+- Left-side panels (Conversations, Projects) are mutually exclusive — opening one closes the other
 
 Phase 7.6 — Schedule Panel and Activity Log
 

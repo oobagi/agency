@@ -554,6 +554,69 @@ export function getWorktrees(projectId?: string): unknown[] {
     .all();
 }
 
+export async function getWorktreeDiff(
+  worktreeId: string,
+): Promise<{ diff: string; branch: string } | undefined> {
+  const db = getDb();
+  const worktree = db
+    .prepare(
+      `SELECT w.*, p.repo_path, p.default_branch
+       FROM worktrees w JOIN projects p ON w.project_id = p.id
+       WHERE w.id = ?`,
+    )
+    .get(worktreeId) as
+    | { worktree_path: string; branch_name: string; repo_path: string; default_branch: string }
+    | undefined;
+
+  if (!worktree) return undefined;
+
+  try {
+    const git = simpleGit(worktree.worktree_path);
+    const diff = await git.diff([`${worktree.default_branch}...${worktree.branch_name}`]);
+    return { diff, branch: worktree.branch_name };
+  } catch {
+    return { diff: '', branch: worktree.branch_name };
+  }
+}
+
+export async function getWorktreeCommits(
+  worktreeId: string,
+  limit = 30,
+): Promise<
+  | {
+      commits: Array<{ hash: string; message: string; author: string; date: string }>;
+      branch: string;
+    }
+  | undefined
+> {
+  const db = getDb();
+  const worktree = db
+    .prepare(
+      `SELECT w.*, p.repo_path, p.default_branch
+       FROM worktrees w JOIN projects p ON w.project_id = p.id
+       WHERE w.id = ?`,
+    )
+    .get(worktreeId) as
+    | { worktree_path: string; branch_name: string; repo_path: string; default_branch: string }
+    | undefined;
+
+  if (!worktree) return undefined;
+
+  try {
+    const git = simpleGit(worktree.worktree_path);
+    const log = await git.log({ maxCount: limit });
+    const commits = log.all.map((c) => ({
+      hash: c.hash.slice(0, 8),
+      message: c.message,
+      author: c.author_name,
+      date: c.date,
+    }));
+    return { commits, branch: worktree.branch_name };
+  } catch {
+    return { commits: [], branch: worktree.branch_name };
+  }
+}
+
 // ── Internal helpers ───────────────────────────────────────────────
 
 function ok(data: Record<string, unknown>): CallToolResult {

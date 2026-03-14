@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.5 — Diff Viewer Panel
-
-Goal: build the read-only diff viewer for browsing worktree changes, commits, and PRs.
-
-Context: depends on Phase 4.6 for PR and Git data endpoints.
-
-What to build: add a Projects/Diff panel accessible from the UI. The panel lists all projects and their worktrees. Selecting a worktree shows: the current git diff for the branch (from GET /api/worktrees/:id/diff), a list of recent commits (from GET /api/worktrees/:id/commits), and open PRs (from GET /api/projects/:id/prs). Selecting a PR shows the full PR diff. All diffs should be rendered with syntax highlighting using a lightweight diff rendering library or a simple custom renderer with add/remove line coloring. No editing capability. This is strictly read-only observation.
-
-Out of scope: code editing, code navigation, cross-project views.
-
-Acceptance criteria: the diff viewer shows real Git diffs from project worktrees. Commits are listed chronologically. PRs are listed with status. PR diffs are viewable with syntax coloring. No write operations are possible through this panel.
-
-Handoff: the user can now observe what agents are building without leaving the Agency UI.
-
 Phase 7.6 — Schedule Panel and Activity Log
 
 Goal: add a schedule panel showing upcoming sim events and a terminal-style activity log.

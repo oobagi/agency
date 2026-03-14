@@ -7,6 +7,7 @@ import { OfficeScene } from './components/OfficeScene';
 import { HUD } from './components/HUD';
 import { SidePanel } from './components/SidePanel';
 import { ConversationsPanel } from './components/ConversationsPanel';
+import { DiffViewerPanel } from './components/DiffViewerPanel';
 
 const styles = {
   root: {
@@ -36,6 +37,7 @@ export function App() {
   const chatBubbles = useChatBubbles(subscribe);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showConversations, setShowConversations] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
 
   const handleAgentClick = useCallback((agentId: string) => {
     setSelectedAgentId(agentId);
@@ -46,7 +48,17 @@ export function App() {
   }, []);
 
   const toggleConversations = useCallback(() => {
-    setShowConversations((prev) => !prev);
+    setShowConversations((prev) => {
+      if (!prev) setShowProjects(false);
+      return !prev;
+    });
+  }, []);
+
+  const toggleProjects = useCallback(() => {
+    setShowProjects((prev) => {
+      if (!prev) setShowConversations(false);
+      return !prev;
+    });
   }, []);
 
   if (error) {
@@ -68,6 +80,8 @@ export function App() {
         connected={connected}
         showConversations={showConversations}
         onToggleConversations={toggleConversations}
+        showProjects={showProjects}
+        onToggleProjects={toggleProjects}
       />
       <OfficeScene
         layout={layout}
@@ -80,6 +94,7 @@ export function App() {
       {showConversations && (
         <ConversationsPanel onClose={toggleConversations} subscribe={subscribe} />
       )}
+      {showProjects && <DiffViewerPanel onClose={toggleProjects} />}
       {selectedAgentId && (
         <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
       )}

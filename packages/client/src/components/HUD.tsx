@@ -6,6 +6,8 @@ interface HUDProps {
   connected: boolean;
   showConversations: boolean;
   onToggleConversations: () => void;
+  showProjects: boolean;
+  onToggleProjects: () => void;
 }
 
 const SPEEDS = [1, 2, 5, 10];
@@ -77,7 +79,14 @@ function formatSimTime(iso: string): string {
   }
 }
 
-export function HUD({ simState, connected, showConversations, onToggleConversations }: HUDProps) {
+export function HUD({
+  simState,
+  connected,
+  showConversations,
+  onToggleConversations,
+  showProjects,
+  onToggleProjects,
+}: HUDProps) {
   const togglePause = useCallback(async () => {
     const endpoint = simState.paused ? '/api/sim/resume' : '/api/sim/pause';
     await fetch(endpoint, { method: 'POST' });
@@ -105,6 +114,13 @@ export function HUD({ simState, connected, showConversations, onToggleConversati
           onClick={onToggleConversations}
         >
           Conversations
+        </button>
+
+        <button
+          style={showProjects ? styles.activeButton : styles.button}
+          onClick={onToggleProjects}
+        >
+          Projects
         </button>
 
         <button style={styles.button} onClick={togglePause}>

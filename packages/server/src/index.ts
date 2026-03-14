@@ -47,6 +47,8 @@ import {
   getProjectPRs,
   getPRDetails,
   getWorktrees,
+  getWorktreeDiff,
+  getWorktreeCommits,
 } from './handlers/git-operations.js';
 import { processEndOfDayCompression } from './memory-compression.js';
 import { setContextMonitorSimClock, setContextAlertCallback } from './context-monitor.js';
@@ -320,6 +322,20 @@ const server = http.createServer(async (req, res) => {
   if (url?.match(/^\/api\/projects\/[^/]+\/worktrees$/) && method === 'GET') {
     const projectId = url.split('/')[3];
     return json(res, getWorktrees(projectId));
+  }
+
+  if (url?.match(/^\/api\/worktrees\/[^/]+\/diff$/) && method === 'GET') {
+    const worktreeId = url.split('/')[3];
+    const result = await getWorktreeDiff(worktreeId);
+    if (!result) return json(res, { error: 'Worktree not found' }, 404);
+    return json(res, result);
+  }
+
+  if (url?.match(/^\/api\/worktrees\/[^/]+\/commits$/) && method === 'GET') {
+    const worktreeId = url.split('/')[3];
+    const result = await getWorktreeCommits(worktreeId);
+    if (!result) return json(res, { error: 'Worktree not found' }, 404);
+    return json(res, result);
   }
 
   if (url?.match(/^\/api\/prs\/[^/]+$/) && method === 'GET') {
