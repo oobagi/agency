@@ -58,7 +58,6 @@ export function useAgents(
       .then((data: Agent[]) => {
         const map = new Map<string, AgentRenderState>();
         for (const a of data) {
-          if (a.role === 'office_manager' && !a.desk_id) continue; // OM without desk, skip for now
           map.set(a.id, {
             id: a.id,
             name: a.name,

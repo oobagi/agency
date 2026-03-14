@@ -6,7 +6,7 @@ import { triggerTMBlockerReport } from './team-manager.js';
 
 // ── Configuration ───────────────────────────────────────────────────
 
-const HUNG_SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 sim minutes
+const HUNG_SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 sim hours (~2 real min at 1x)
 
 // ── Sim clock accessor ─────────────────────────────────────────────
 

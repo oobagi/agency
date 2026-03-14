@@ -10,7 +10,7 @@ import {
   handleCreateTeam,
   handleAssignAgentToTeam,
 } from '../handlers/agent-management.js';
-import { handleSpeak, handleSendToManager } from '../handlers/communication.js';
+import { handleSpeak, handleReplyToUser, handleSendToManager } from '../handlers/communication.js';
 import {
   handleCreateTask,
   handleBeginTask,
@@ -70,6 +70,7 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   walk_to_exit: handleWalkToExit,
   set_state: handleSetState,
   speak: handleSpeak,
+  reply_to_user: handleReplyToUser,
   send_to_manager: handleSendToManager,
   create_task: handleCreateTask,
   begin_task: handleBeginTask,

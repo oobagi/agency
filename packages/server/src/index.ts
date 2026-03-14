@@ -24,6 +24,7 @@ import {
   initOfficeManager,
   setOfficeManagerSimClock,
   sendUserMessageToAgent,
+  triggerUserMessageSession,
   getChatLogs,
 } from './office-manager.js';
 import { setTeamManagerSimClock } from './team-manager.js';
@@ -293,6 +294,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, { error: 'message is required' }, 400);
       }
       sendUserMessageToAgent(agentId, message.trim());
+      triggerUserMessageSession(agentId);
       return json(res, { sent: true, agentId });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Invalid request';

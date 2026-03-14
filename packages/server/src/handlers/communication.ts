@@ -96,6 +96,45 @@ export async function handleSpeak(
   });
 }
 
+// ── reply_to_user handler ────────────────────────────────────────────
+
+export async function handleReplyToUser(
+  args: Record<string, unknown>,
+  callerAgentId: string,
+  simNow: () => Date,
+): Promise<CallToolResult> {
+  const message = args.message as string;
+  if (!message?.trim()) return error('message is required');
+
+  const db = getDb();
+
+  const agent = db
+    .prepare('SELECT id, name FROM agents WHERE id = ? AND fired_at IS NULL')
+    .get(callerAgentId) as { id: string; name: string } | undefined;
+
+  if (!agent) return error('Agent not found');
+
+  const simTime = simNow().toISOString();
+  const now = new Date().toISOString();
+
+  // Record in chat_logs for this agent (speaker_type = 'agent', visible in SidePanel)
+  db.prepare(
+    'INSERT INTO chat_logs (id, agent_id, speaker_id, speaker_type, message, sim_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).run(crypto.randomUUID(), callerAgentId, callerAgentId, 'agent', message, simTime, now);
+
+  // Broadcast as a speak event so the UI shows it in real-time
+  broadcastSpeakFn({
+    agentId: callerAgentId,
+    agentName: agent.name,
+    message,
+    listeners: [],
+  });
+
+  console.log(`[reply_to_user] ${agent.name} → User: "${message.slice(0, 80)}"`);
+
+  return ok({ message: 'Message sent to user.' });
+}
+
 // ── send_to_manager handler ─────────────────────────────────────────
 
 export async function handleSendToManager(

@@ -64,6 +64,14 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
     }),
     managerOnly: false,
   },
+  reply_to_user: {
+    description:
+      'Send a direct message to the user. Use this to respond to user messages, ask clarifying questions, or report status.',
+    inputSchema: z.object({
+      message: z.string().describe('The message to send to the user'),
+    }),
+    managerOnly: false,
+  },
   send_to_manager: {
     description: 'Walk to your Team Manager and deliver a message. Handles the walk automatically.',
     inputSchema: z.object({

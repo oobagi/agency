@@ -3,7 +3,7 @@ import { getDb } from './db.js';
 export type TickCallback = (simTime: Date) => void;
 
 const TICK_INTERVAL_MS = 1000; // Real-world ms between ticks
-const SIM_SECONDS_PER_TICK = 1; // Base sim seconds advanced per tick at 1x speed
+const SIM_SECONDS_PER_TICK = 60; // Base sim seconds advanced per tick at 1x speed (1 real sec = 1 sim min)
 
 export class SimClock {
   private simTime: Date;
