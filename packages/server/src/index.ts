@@ -24,6 +24,12 @@ import {
   getScheduledJobs,
   getJobQueue,
 } from './scheduler.js';
+import {
+  initOfficeManager,
+  setOfficeManagerSimClock,
+  sendUserMessageToAgent,
+  getChatLogs,
+} from './office-manager.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -32,6 +38,7 @@ console.log('Database initialized');
 
 const clock = new SimClock();
 setSimClock(() => clock.now());
+setOfficeManagerSimClock(() => clock.now());
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -118,6 +125,28 @@ const server = http.createServer(async (req, res) => {
   if (url?.match(/^\/api\/teams\/[^/]+\/desks$/) && method === 'GET') {
     const teamId = url.split('/')[3];
     return json(res, getDesks(teamId));
+  }
+
+  // ── Chat and message endpoints ───────────────────────────────────
+  if (url?.match(/^\/api\/agents\/[^/]+\/chat-logs$/) && method === 'GET') {
+    const agentId = url.split('/')[3];
+    return json(res, getChatLogs(agentId));
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/messages$/) && method === 'POST') {
+    try {
+      const agentId = url.split('/')[3];
+      const body = JSON.parse(await readBody(req));
+      const message = body.message;
+      if (typeof message !== 'string' || !message.trim()) {
+        return json(res, { error: 'message is required' }, 400);
+      }
+      sendUserMessageToAgent(agentId, message.trim());
+      return json(res, { sent: true, agentId });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
   }
 
   // ── Session endpoints ────────────────────────────────────────────
@@ -229,6 +258,9 @@ clock.onTick((simTime) => {
     }
   }
 });
+
+// Initialize the Office Manager (creates if not exists, registers scheduled jobs)
+initOfficeManager();
 
 // Handle any jobs that were missed while the server was down
 handleMissedJobsOnBoot(clock.now());

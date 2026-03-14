@@ -85,12 +85,12 @@ Notes for the next agent: Import processTick from ./scheduler.js — it's called
 
 Phase 4.0 — Office Manager Autonomous Loop
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Office Manager module (src/office-manager.ts) with autonomous session spawning. initOfficeManager() creates the singleton Office Manager agent on first run (built-in persona, not from agency-agents repo) with role 'office_manager'. Creates 7 scheduled jobs: 4 daily lifecycle (arrive/lunch/return/depart) plus 3 OM session jobs (morning_planning at 08:05, midday_check at 13:05, eod_review at 17:00). OM sessions scheduled 5 minutes after arrive/return to ensure the OM has arrived first. When OM session jobs fire, spawnOMSession() builds a rich context including: current sim time, all projects, all teams with manager/agent counts, all agents with states, blocked agents, pending/blocked tasks, open PRs, user messages from chat_logs, available persona count, and full tool list. Session spawned via ProviderManager + SessionRecorder for full recording. The OM gets access to all 24 MCP tools (general + manager-only). User message system: sendUserMessageToAgent() stores messages in chat_logs with speaker_type 'user', injected into OM context on next session. REST endpoints: GET /api/agents/:id/chat-logs, POST /api/agents/:id/messages (accepts {message: string}). Re-init is idempotent — won't duplicate the OM or its jobs.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: OM session jobs scheduled at :05 past the hour (08:05, 13:05) instead of exactly on the hour, so they fire after the daily arrive/return jobs rather than simultaneously.
+Issues encountered: None.
+Notes for the next agent: Import initOfficeManager from ./office-manager.js — called on server startup in index.ts. The OM sessions fire automatically via the scheduler when sim time reaches 08:05, 13:05, 17:00. The actual LLM session requires a configured provider (Claude Agent SDK with CLI auth). User messages are injected into the OM's next session context. getChatLogs(agentId) returns the full chat history for any agent. The OM persona and context builder are in office-manager.ts — extend buildOMContext() to add more status information as new systems come online.
 
 Phase 4.1 — Team Manager Autonomous Loop
 
