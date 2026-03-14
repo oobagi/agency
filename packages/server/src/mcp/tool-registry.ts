@@ -125,9 +125,14 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
 
   // ── Manager-only tools ──────────────────────────────────────────
   hire_agent: {
-    description: 'Hire a new agent with a persona. The agent starts knowing nothing.',
+    description:
+      'Hire a new agent with a persona. Optionally set role to team_manager. The agent starts knowing nothing.',
     inputSchema: z.object({
       persona_id: z.string().describe('ID of the persona to assign'),
+      role: z
+        .enum(['agent', 'team_manager'] as const)
+        .optional()
+        .describe('Role for the agent: "agent" (default) or "team_manager"'),
     }),
     managerOnly: true,
   },

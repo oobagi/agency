@@ -30,6 +30,7 @@ import {
   sendUserMessageToAgent,
   getChatLogs,
 } from './office-manager.js';
+import { setTeamManagerSimClock } from './team-manager.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -39,6 +40,7 @@ console.log('Database initialized');
 const clock = new SimClock();
 setSimClock(() => clock.now());
 setOfficeManagerSimClock(() => clock.now());
+setTeamManagerSimClock(() => clock.now());
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {

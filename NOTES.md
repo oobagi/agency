@@ -94,12 +94,12 @@ Notes for the next agent: Import initOfficeManager from ./office-manager.js — 
 
 Phase 4.1 — Team Manager Autonomous Loop
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Team Manager module (src/team-manager.ts) with three trigger-based session spawning. triggerTMDeskArrival() fires when a TM transitions Walking → Idle (arriving at desk). triggerTMTaskComplete() fires when any team member completes a task (looks up the team's manager by team_id). triggerTMBlockerReport() fires when a team member reports a blocker. Each trigger spawns an autonomous session with team-scoped context: team members with states, team tasks, team PRs, blocked agents, recent chat logs, and full tool list. TM persona is built dynamically with the team name. All sessions go through ProviderManager + SessionRecorder. Guard against duplicate sessions — skips trigger if TM already has an active session. hire_agent updated to accept optional role parameter ('agent' | 'team_manager'). assign_agent_to_team auto-sets teams.manager_id when a team_manager is assigned. onAgentStateChange() wired into scheduler's setAgentState() to detect Walking → Idle transitions for TMs.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: None.
+Issues encountered: None.
+Notes for the next agent: Import trigger functions from ./team-manager.js: triggerTMDeskArrival(tmId), triggerTMTaskComplete(teamId, agentId, taskTitle), triggerTMBlockerReport(teamId, agentId, description). These are called from: the scheduler (state changes), the task system (Phase 4.5 on completion), and the report_blocker handler (Phase 5.1). The onAgentStateChange() hook is already wired into the scheduler. Additional state change sources (Phase 4.3 state machine) should also call it.
 
 Phase 4.2 — Regular Agent Idle Check-in and Context Assembly
 

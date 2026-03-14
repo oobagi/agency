@@ -57,11 +57,12 @@ export async function handleHireAgent(
   const agentId = crypto.randomUUID();
   const now = new Date().toISOString();
   const simTime = simNow().toISOString();
+  const role = (args.role as string) === 'team_manager' ? 'team_manager' : 'agent';
 
   db.prepare(
     `INSERT INTO agents (id, name, role, persona, team_id, desk_id, state, position_x, position_y, position_z, hired_at, created_at, updated_at)
-     VALUES (?, ?, 'agent', ?, NULL, NULL, 'Idle', 0, 0, 0, ?, ?, ?)`,
-  ).run(agentId, persona.name, persona.system_prompt, simTime, now, now);
+     VALUES (?, ?, ?, ?, NULL, NULL, 'Idle', 0, 0, 0, ?, ?, ?)`,
+  ).run(agentId, persona.name, role, persona.system_prompt, simTime, now, now);
 
   // Create the four daily scheduled jobs (arrive, lunch, return, depart)
   createDailyScheduleForAgent(agentId, simNow());
@@ -201,7 +202,7 @@ export async function handleAssignAgentToTeam(
   const db = getDb();
 
   const agent = db.prepare('SELECT * FROM agents WHERE id = ? AND fired_at IS NULL').get(agentId) as
-    | { id: string; name: string; desk_id: string | null; team_id: string | null }
+    | { id: string; name: string; role: string; desk_id: string | null; team_id: string | null }
     | undefined;
 
   if (!agent) {
@@ -241,6 +242,11 @@ export async function handleAssignAgentToTeam(
 
     // Mark desk as occupied
     db.prepare('UPDATE desks SET agent_id = ? WHERE id = ?').run(agentId, desk.id);
+
+    // If this is a team manager, set them as the team's manager
+    if (agent.role === 'team_manager') {
+      db.prepare('UPDATE teams SET manager_id = ? WHERE id = ?').run(agentId, teamId);
+    }
   });
 
   assignTx();

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
+import { onAgentStateChange } from './team-manager.js';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -42,10 +43,16 @@ const jobHandlers: Record<string, JobHandler> = {
 
 function setAgentState(agentId: string, newState: string): boolean {
   const db = getDb();
+  const oldState = getAgentState(agentId);
   const now = new Date().toISOString();
   const result = db
     .prepare('UPDATE agents SET state = ?, updated_at = ? WHERE id = ? AND fired_at IS NULL')
     .run(newState, now, agentId);
+
+  if (result.changes > 0 && oldState) {
+    onAgentStateChange(agentId, oldState, newState);
+  }
+
   return result.changes > 0;
 }
 
