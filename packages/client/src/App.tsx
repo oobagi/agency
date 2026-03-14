@@ -10,6 +10,7 @@ import { ConversationsPanel } from './components/ConversationsPanel';
 import { DiffViewerPanel } from './components/DiffViewerPanel';
 import { SchedulePanel } from './components/SchedulePanel';
 import { BlockedAgentModal } from './components/BlockedAgentModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const styles = {
   root: {
@@ -37,7 +38,7 @@ type LeftPanel = 'conversations' | 'projects' | 'schedule' | null;
 export function App() {
   const { connected, simState, subscribe } = useWebSocket();
   const { data: layout, error } = useOfficeLayout();
-  const agents = useAgents(subscribe);
+  const agents = useAgents(subscribe, connected);
   const chatBubbles = useChatBubbles(subscribe);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [leftPanel, setLeftPanel] = useState<LeftPanel>(null);
@@ -81,35 +82,49 @@ export function App() {
         showSchedule={leftPanel === 'schedule'}
         onToggleSchedule={() => togglePanel('schedule')}
       />
-      <OfficeScene
-        layout={layout}
-        agents={agents}
-        chatBubbles={chatBubbles}
-        selectedAgentId={selectedAgentId}
-        onAgentClick={handleAgentClick}
-        onBackgroundClick={handleClose}
-      />
-      {leftPanel === 'conversations' && (
-        <ConversationsPanel onClose={() => togglePanel('conversations')} subscribe={subscribe} />
-      )}
-      {leftPanel === 'projects' && <DiffViewerPanel onClose={() => togglePanel('projects')} />}
-      {leftPanel === 'schedule' && (
-        <SchedulePanel
-          onClose={() => togglePanel('schedule')}
-          subscribe={subscribe}
-          simTime={simState.simTime}
+      <ErrorBoundary fallbackLabel="3D Viewport">
+        <OfficeScene
+          layout={layout}
+          agents={agents}
+          chatBubbles={chatBubbles}
+          selectedAgentId={selectedAgentId}
+          onAgentClick={handleAgentClick}
+          onBackgroundClick={handleClose}
         />
+      </ErrorBoundary>
+      {leftPanel === 'conversations' && (
+        <ErrorBoundary fallbackLabel="Conversations">
+          <ConversationsPanel onClose={() => togglePanel('conversations')} subscribe={subscribe} />
+        </ErrorBoundary>
+      )}
+      {leftPanel === 'projects' && (
+        <ErrorBoundary fallbackLabel="Projects">
+          <DiffViewerPanel onClose={() => togglePanel('projects')} />
+        </ErrorBoundary>
+      )}
+      {leftPanel === 'schedule' && (
+        <ErrorBoundary fallbackLabel="Schedule">
+          <SchedulePanel
+            onClose={() => togglePanel('schedule')}
+            subscribe={subscribe}
+            simTime={simState.simTime}
+          />
+        </ErrorBoundary>
       )}
       {selectedAgentId && (
-        <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
+        <ErrorBoundary fallbackLabel="Agent Panel">
+          <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
+        </ErrorBoundary>
       )}
       {selectedAgentId && isBlocked && selectedAgent && (
-        <BlockedAgentModal
-          agentId={selectedAgentId}
-          agentName={selectedAgent.name}
-          agentRole={selectedAgent.role}
-          onClose={handleClose}
-        />
+        <ErrorBoundary fallbackLabel="Blocker Modal">
+          <BlockedAgentModal
+            agentId={selectedAgentId}
+            agentName={selectedAgent.name}
+            agentRole={selectedAgent.role}
+            onClose={handleClose}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );

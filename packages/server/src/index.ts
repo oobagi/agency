@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { initDb, closeDb } from './db.js';
+import { initDb, getDb, closeDb } from './db.js';
 import { SimClock } from './sim-clock.js';
 import { handleMcpRequest, closeMcpSessions, setSimClock } from './mcp/server.js';
 import { fetchAndStorePersonas, getPersonas, refreshPersonas } from './personas.js';
@@ -10,6 +10,8 @@ import {
   getSessionsForAgent,
   getSessionById,
   interruptSession,
+  getActiveSessionCount,
+  getAllActiveSessionIds,
 } from './session-recorder.js';
 import type { SessionEvent } from './providers/types.js';
 import {
@@ -65,9 +67,53 @@ import { setMeetingSimClock, initMeetingSystem } from './meetings.js';
 import { setActivityBroadcast, broadcastActivity } from './state-machine.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
+// eslint-disable-next-line no-restricted-syntax -- real-world uptime, not game logic
+const startTime = Date.now();
 
 initDb();
 console.log('Database initialized');
+
+// ── State restoration on boot ──────────────────────────────────────
+function restoreStateOnBoot(): void {
+  const db = getDb();
+
+  // Mark orphaned sessions (were active when server died) as errored
+  const orphanedSessions = db
+    .prepare("UPDATE sessions SET outcome = 'errored' WHERE outcome IS NULL AND ended_at IS NULL")
+    .run();
+  if (orphanedSessions.changes > 0) {
+    console.log(`[restore] Marked ${orphanedSessions.changes} orphaned session(s) as errored`);
+  }
+
+  // Reset transient-state agents to Idle
+  // Walking, Arriving, Meeting states are in-memory only (movement/meeting state lost on restart)
+  const transientStates = ['Walking', 'Arriving', 'Meeting'];
+  const placeholders = transientStates.map(() => '?').join(', ');
+  const resetAgents = db
+    .prepare(
+      `UPDATE agents SET state = 'Idle'
+       WHERE state IN (${placeholders}) AND fired_at IS NULL`,
+    )
+    .run(...transientStates);
+  if (resetAgents.changes > 0) {
+    console.log(`[restore] Reset ${resetAgents.changes} agent(s) from transient states to Idle`);
+  }
+
+  // Log agents left in persistent states (no action needed)
+  const persistentAgents = db
+    .prepare(
+      `SELECT state, COUNT(*) as count FROM agents
+       WHERE state IN ('Programming', 'Researching', 'Reviewing', 'Blocked')
+       AND fired_at IS NULL
+       GROUP BY state`,
+    )
+    .all() as Array<{ state: string; count: number }>;
+  for (const row of persistentAgents) {
+    console.log(`[restore] ${row.count} agent(s) preserved in ${row.state} state`);
+  }
+}
+
+restoreStateOnBoot();
 
 const clock = new SimClock();
 setSimClock(() => clock.now());
@@ -111,6 +157,26 @@ const server = http.createServer(async (req, res) => {
   if (url?.startsWith('/mcp')) {
     const handled = await handleMcpRequest(req, res);
     if (handled) return;
+  }
+
+  // ── Health check endpoint ───────────────────────────────────────
+  if (url === '/api/health' && method === 'GET') {
+    const db = getDb();
+    const activeAgents = (
+      db.prepare('SELECT COUNT(*) as count FROM agents WHERE fired_at IS NULL').get() as {
+        count: number;
+      }
+    ).count;
+    return json(res, {
+      status: 'healthy',
+      simTime: clock.now().toISOString(),
+      simPaused: clock.isPaused(),
+      simSpeed: clock.getSpeed(),
+      activeAgents,
+      activeSessions: getActiveSessionCount(),
+      // eslint-disable-next-line no-restricted-syntax -- real-world uptime, not game logic
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+    });
   }
 
   if (url === '/api/sim/status' && method === 'GET') {
@@ -166,7 +232,7 @@ const server = http.createServer(async (req, res) => {
 
   // ── Office layout endpoint ──────────────────────────────────────
   if (url === '/api/office/layout' && method === 'GET') {
-    const db = (await import('./db.js')).getDb();
+    const db = getDb();
     const layout = db.prepare('SELECT * FROM office_layout').all();
     const meetingRooms = db.prepare('SELECT * FROM meeting_rooms').all();
     const desks = db
@@ -557,16 +623,54 @@ server.listen(PORT, () => {
   console.log(`Agency server listening on http://localhost:${PORT}`);
 });
 
+// ── Graceful shutdown ─────────────────────────────────────────────
+
+let isShuttingDown = false;
+
 function shutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   console.log('Shutting down...');
+
+  // 1. Stop sim clock (persists time)
   clock.stop();
+
+  // 2. Stop movement loop
   stopMovementLoop();
+
+  // 3. Interrupt all active sessions
+  const activeIds = getAllActiveSessionIds();
+  for (const sessionId of activeIds) {
+    interruptSession(sessionId, 'interrupted', () => clock.now());
+  }
+  if (activeIds.length > 0) {
+    console.log(`[shutdown] Interrupted ${activeIds.length} active session(s)`);
+  }
+
+  // 4. Close MCP sessions
   closeMcpSessions();
+
+  // 5. Close WebSocket server
   wss.close();
-  server.close();
-  closeDb();
-  process.exit(0);
+
+  // 6. Close HTTP server
+  server.close(() => {
+    // 7. Close database
+    closeDb();
+    console.log('Shutdown complete');
+    process.exit(0);
+  });
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+// Force exit after 10 seconds if graceful shutdown stalls
+function handleSignal() {
+  shutdown();
+  const forceTimer = setTimeout(() => {
+    console.error('Forced exit after timeout');
+    process.exit(1);
+  }, 10_000);
+  forceTimer.unref();
+}
+
+process.on('SIGINT', handleSignal);
+process.on('SIGTERM', handleSignal);

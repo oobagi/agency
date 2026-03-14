@@ -11,6 +11,7 @@ Persistent background server simulating a living software dev office with autono
 - **Format**: `pnpm format` (Prettier) / `pnpm format:check`
 - **Server port**: 3001 (configurable via PORT env var)
 - **Client**: Vite dev server proxies `/api` and `/ws` to server
+- **Status**: Feature-complete and hardened (all phases 1.0-8.1 done)
 
 ## Hard Constraints
 
@@ -20,7 +21,7 @@ These are non-negotiable. Code violating any of these is wrong.
 2. **Agency never touches external repos.** Only track metadata (paths, branches, PR status). Never read/write source code in agent project repos.
 3. **Physical presence required for all communication.** No event emitters, pub/sub, or message buses between agents. Agents must physically walk to each other. No exceptions.
 4. **Managers are autonomous.** They run on sim-time schedules, not user input.
-5. **Failures escalate through hierarchy.** Agent → Team Manager → Office Manager → User. User is last resort.
+5. **Failures escalate through hierarchy.** Agent -> Team Manager -> Office Manager -> User. User is last resort.
 6. **New agents know nothing.** Only their persona. Knowledge comes from physical interaction with managers.
 7. **Agents never merge their own work.** All work goes through PRs. Team Manager reviews and merges.
 8. **UI is a 3D viewport.** No global text input. User clicks agents to interact.
@@ -41,13 +42,10 @@ These are non-negotiable. Code violating any of these is wrong.
 - Use `.js` extensions in imports (Node16 module resolution)
 - Prefer `node:` prefix for Node.js built-ins (e.g., `node:http`)
 
-## Implementation Progress
+## Documentation
 
-See @PHASES.md for the full plan and @NOTES.md for completion log.
-Current phase and status tracked there — read before starting work.
-
-## Deep Reference
-
-- @DESIGN_DOC.md — Full product and architecture specification (authoritative)
-- @PHASES.md — Granular phased implementation plan with acceptance criteria
-- @NOTES.md — Running log of implementation progress
+- @docs/architecture.md — System architecture, module map, boot/shutdown sequences, key implementation details
+- @docs/agents.md — Agent hierarchy, autonomy, communication, sessions, memory, escalation
+- @docs/api-reference.md — All REST endpoints, WebSocket events, and MCP tools
+- @docs/database.md — Full table schemas and migrations
+- @docs/implementation-log.md — Phase-by-phase implementation history with decisions and issues

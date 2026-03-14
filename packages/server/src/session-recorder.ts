@@ -15,6 +15,8 @@ import {
   unregisterHungDetectorSession,
 } from './hung-session-detector.js';
 import { transitionAgentState } from './state-machine.js';
+import { createBlocker } from './blockers.js';
+import { triggerTMBlockerReport } from './team-manager.js';
 
 // ---------- WebSocket broadcast ----------
 
@@ -42,6 +44,14 @@ export function getActiveSessionForAgent(agentId: string) {
     }
   }
   return undefined;
+}
+
+export function getActiveSessionCount(): number {
+  return activeSessions.size;
+}
+
+export function getAllActiveSessionIds(): string[] {
+  return Array.from(activeSessions.keys());
 }
 
 // ---------- SessionRecorder ----------
@@ -195,8 +205,49 @@ export class SessionRecorder {
         );
         unregisterSession(this.sessionId);
         unregisterHungDetectorSession(this.sessionId);
+        this.handleSessionError(data.errors);
         break;
       }
+    }
+  }
+
+  private handleSessionError(errors: string[]): void {
+    const db = getDb();
+    const errorMsg = `Provider error: ${errors.join('; ') || 'unknown error'}`;
+
+    // Check agent exists and is in a blockable state
+    const agent = db
+      .prepare('SELECT state, team_id FROM agents WHERE id = ? AND fired_at IS NULL')
+      .get(this.agentId) as { state: string; team_id: string | null } | undefined;
+
+    if (!agent) return;
+
+    const blockableStates = new Set([
+      'Idle',
+      'Walking',
+      'Researching',
+      'Programming',
+      'Reviewing',
+      'Meeting',
+    ]);
+    if (!blockableStates.has(agent.state)) return;
+
+    transitionAgentState(this.agentId, 'Blocked');
+
+    // Mark in-progress task as blocked
+    const task = db
+      .prepare("SELECT id FROM tasks WHERE agent_id = ? AND status = 'in_progress' LIMIT 1")
+      .get(this.agentId) as { id: string } | undefined;
+
+    if (task) {
+      db.prepare("UPDATE tasks SET status = 'blocked' WHERE id = ?").run(task.id);
+    }
+
+    const simTime = this.simNow();
+    const blockerId = createBlocker(this.agentId, errorMsg, simTime, task?.id);
+
+    if (agent.team_id) {
+      triggerTMBlockerReport(agent.team_id, this.agentId, errorMsg, blockerId);
     }
   }
 }

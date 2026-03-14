@@ -43,12 +43,15 @@ const ACTIVITY_ICONS: Record<string, string> = {
 
 const ACTIVITY_ICON_DURATION_MS = 3000;
 
-export function useAgents(subscribe: (handler: (msg: WSMessage) => void) => () => void) {
+export function useAgents(
+  subscribe: (handler: (msg: WSMessage) => void) => () => void,
+  connected: boolean,
+) {
   const [agents, setAgents] = useState<Map<string, AgentRenderState>>(new Map());
   const agentsRef = useRef(agents);
   agentsRef.current = agents;
 
-  // Fetch initial agents from REST
+  // Fetch initial agents from REST, and re-fetch on reconnect
   useEffect(() => {
     fetch('/api/agents')
       .then((r) => r.json())
@@ -75,7 +78,7 @@ export function useAgents(subscribe: (handler: (msg: WSMessage) => void) => () =
         setAgents(map);
       })
       .catch(() => {});
-  }, []);
+  }, [connected]);
 
   // Subscribe to WebSocket position updates
   const handleMessage = useCallback((msg: WSMessage) => {

@@ -48,6 +48,8 @@ type MessageHandler = (msg: WSMessage) => void;
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const handlersRef = useRef<Set<MessageHandler>>(new Set());
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [connected, setConnected] = useState(false);
   const [simState, setSimState] = useState<SimState>({
     simTime: new Date().toISOString(),
@@ -70,11 +72,17 @@ export function useWebSocket() {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => {
+        setConnected(true);
+        reconnectAttemptRef.current = 0;
+      };
+
       ws.onclose = () => {
         setConnected(false);
-        // Reconnect after 2s
-        setTimeout(connect, 2000);
+        const attempt = reconnectAttemptRef.current;
+        const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+        reconnectAttemptRef.current = attempt + 1;
+        reconnectTimerRef.current = setTimeout(connect, delay);
       };
 
       ws.onmessage = (event) => {
@@ -97,6 +105,9 @@ export function useWebSocket() {
     connect();
 
     return () => {
+      if (reconnectTimerRef.current !== null) {
+        clearTimeout(reconnectTimerRef.current);
+      }
       wsRef.current?.close();
     };
   }, []);
