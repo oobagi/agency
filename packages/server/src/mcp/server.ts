@@ -4,6 +4,35 @@ import type http from 'node:http';
 import { z } from 'zod/v4';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS, validateAgentPermission } from './tool-registry.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import {
+  handleHireAgent,
+  handleFireAgent,
+  handleCreateTeam,
+  handleAssignAgentToTeam,
+} from '../handlers/agent-management.js';
+
+// ---------- Sim clock accessor (set from index.ts) ----------
+
+let simNowFn: () => Date = () => new Date();
+
+export function setSimClock(fn: () => Date): void {
+  simNowFn = fn;
+}
+
+// ---------- Real handler registry ----------
+
+type ToolHandler = (
+  args: Record<string, unknown>,
+  callerAgentId: string,
+  simNow: () => Date,
+) => Promise<CallToolResult>;
+
+const REAL_HANDLERS: Record<string, ToolHandler> = {
+  hire_agent: handleHireAgent,
+  fire_agent: handleFireAgent,
+  create_team: handleCreateTeam,
+  assign_agent_to_team: handleAssignAgentToTeam,
+};
 
 // ---------- Create a fresh MCP server with all tools registered ----------
 
@@ -20,10 +49,14 @@ export function createMcpServer(): McpServer {
         ? def.inputSchema.passthrough()
         : def.inputSchema;
 
+    const handler = REAL_HANDLERS[toolName]
+      ? createRealHandler(toolName, REAL_HANDLERS[toolName])
+      : createStubHandler(toolName);
+
     server.registerTool(
       toolName,
       { description: def.description, inputSchema: schema },
-      createStubHandler(toolName),
+      handler,
     );
   }
 
@@ -33,8 +66,45 @@ export function createMcpServer(): McpServer {
 // Log once at startup
 console.log(
   `MCP tools defined: ${Object.keys(TOOL_DEFINITIONS).length} total ` +
-    `(${MANAGER_ONLY_TOOLS.size} manager-only)`,
+    `(${MANAGER_ONLY_TOOLS.size} manager-only, ${Object.keys(REAL_HANDLERS).length} implemented)`,
 );
+
+// ---------- Real handler wrapper (permission check + delegation) ----------
+
+function createRealHandler(
+  toolName: string,
+  handler: ToolHandler,
+): (args: unknown) => Promise<CallToolResult> {
+  return async (rawArgs: unknown): Promise<CallToolResult> => {
+    const args = (rawArgs ?? {}) as Record<string, unknown>;
+    const agentId = args._agent_id as string | undefined;
+
+    // Permission check for manager-only tools
+    if (MANAGER_ONLY_TOOLS.has(toolName)) {
+      if (!agentId) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Permission denied: tool "${toolName}" requires a manager role. No agent identity provided.`,
+            },
+          ],
+        };
+      }
+
+      const check = validateAgentPermission(agentId, toolName);
+      if (!check.allowed) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Permission denied: ${check.reason}` }],
+        };
+      }
+    }
+
+    return handler(args, agentId ?? '', simNowFn);
+  };
+}
 
 // ---------- Stub handler factory ----------
 
@@ -43,10 +113,6 @@ function createStubHandler(
 ): (args: unknown) => Promise<CallToolResult> {
   return async (rawArgs: unknown): Promise<CallToolResult> => {
     const args = (rawArgs ?? {}) as Record<string, unknown>;
-
-    // Permission check: manager-only tools require _agent_id with a manager role.
-    // In production (Phase 3.0+) the agent_id comes from session context.
-    // For stubs, it can be passed as a top-level _agent_id field for testing.
     const agentId = args._agent_id as string | undefined;
 
     if (MANAGER_ONLY_TOOLS.has(toolName)) {

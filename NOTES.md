@@ -58,12 +58,12 @@ Notes for the next agent: Import providerManager from ./providers/manager.js. Ca
 
 Phase 3.1 — Agent Management and Hiring
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Handler module (src/handlers/agent-management.ts) with real implementations for four MCP tools: hire_agent, fire_agent, create_team, and assign_agent_to_team. hire_agent looks up a persona by ID, creates a new agent record with role 'agent', state 'Idle', the persona's system_prompt, and no team/desk/knowledge. fire_agent sets fired_at to sim time, transitions agent to 'Departing', frees their desk, removes team assignment, and clears team manager_id if applicable. Cannot fire the Office Manager. create_team creates a team record with name and hex color, then allocates a block of 8 desks positioned in a row layout. assign_agent_to_team assigns an agent to a team, picks the first available desk in the team's block, updates the agent's position to the desk coordinates, and marks the desk as occupied. Frees the old desk if the agent had one. MCP server refactored to support real handler registry alongside stub handlers — tools with real implementations get routed to the handler module with permission checks, sim clock access, and caller identity. Sim clock accessor wired from index.ts via setSimClock(). REST endpoints added: GET /api/agents (all agents with team info), GET /api/agents/:id (single agent), GET /api/teams (all teams with agent count), GET /api/teams/:id (single team), GET /api/desks (all desks), GET /api/teams/:id/desks (team desks). Team color palette of 8 visually distinct colors exported for future use.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: None.
+Issues encountered: None.
+Notes for the next agent: Import handler functions from ./handlers/agent-management.js. To add more real MCP tool handlers, add entries to the REAL_HANDLERS map in src/mcp/server.ts — each handler receives (args, callerAgentId, simNow). The desk allocation uses a row-based layout: each team gets 8 desks in a horizontal row, with rows stacked in the Z axis. The simNow function is injected via setSimClock() from index.ts. REST endpoints for agents and teams are live. The handler module also exports getAgents(), getAgent(), getTeams(), getTeam(), getDesks() for querying.
 
 Phase 3.2 — Session Recording Pipeline
 

@@ -2,8 +2,15 @@ import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { initDb, closeDb } from './db.js';
 import { SimClock } from './sim-clock.js';
-import { handleMcpRequest, closeMcpSessions } from './mcp/server.js';
+import { handleMcpRequest, closeMcpSessions, setSimClock } from './mcp/server.js';
 import { fetchAndStorePersonas, getPersonas, refreshPersonas } from './personas.js';
+import {
+  getAgents,
+  getAgent,
+  getTeams,
+  getTeam,
+  getDesks,
+} from './handlers/agent-management.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -11,6 +18,7 @@ initDb();
 console.log('Database initialized');
 
 const clock = new SimClock();
+setSimClock(() => clock.now());
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,6 +73,38 @@ const server = http.createServer(async (req, res) => {
       const message = e instanceof Error ? e.message : 'Refresh failed';
       return json(res, { error: message }, 500);
     }
+  }
+
+  // ── Agent and team endpoints ──────────────────────────────────────
+  if (url === '/api/agents' && method === 'GET') {
+    return json(res, getAgents());
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+$/) && method === 'GET') {
+    const agentId = url.split('/')[3];
+    const agent = getAgent(agentId);
+    if (!agent) return json(res, { error: 'Agent not found' }, 404);
+    return json(res, agent);
+  }
+
+  if (url === '/api/teams' && method === 'GET') {
+    return json(res, getTeams());
+  }
+
+  if (url?.match(/^\/api\/teams\/[^/]+$/) && method === 'GET') {
+    const teamId = url.split('/')[3];
+    const team = getTeam(teamId);
+    if (!team) return json(res, { error: 'Team not found' }, 404);
+    return json(res, team);
+  }
+
+  if (url === '/api/desks' && method === 'GET') {
+    return json(res, getDesks());
+  }
+
+  if (url?.match(/^\/api\/teams\/[^/]+\/desks$/) && method === 'GET') {
+    const teamId = url.split('/')[3];
+    return json(res, getDesks(teamId));
   }
 
   if (url === '/api/sim/speed' && method === 'POST') {
