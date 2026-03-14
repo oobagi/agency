@@ -160,6 +160,22 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── Office layout endpoint ──────────────────────────────────────
+  if (url === '/api/office/layout' && method === 'GET') {
+    const db = (await import('./db.js')).getDb();
+    const layout = db.prepare('SELECT * FROM office_layout').all();
+    const meetingRooms = db.prepare('SELECT * FROM meeting_rooms').all();
+    const desks = db
+      .prepare(
+        `SELECT d.*, a.name as agent_name, a.id as agent_id, t.name as team_name, t.color as team_color
+         FROM desks d
+         LEFT JOIN agents a ON d.agent_id = a.id
+         LEFT JOIN teams t ON d.team_id = t.id`,
+      )
+      .all();
+    return json(res, { layout, meetingRooms, desks });
+  }
+
   // ── Agent and team endpoints ──────────────────────────────────────
   if (url === '/api/agents' && method === 'GET') {
     return json(res, getAgents());

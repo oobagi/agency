@@ -12,6 +12,7 @@
   "devDependencies": {
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/three": "^0.183.1",
     "@vitejs/plugin-react": "^4.4.0",
     "eslint": "^9.25.0",
     "typescript": "^5.8.0",
@@ -19,7 +20,10 @@
     "vite": "^6.3.0"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "three": "^0.183.2"
   }
 }
