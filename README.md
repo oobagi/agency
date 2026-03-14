@@ -40,7 +40,7 @@ Closing the browser doesn't stop anything. The simulation keeps running.
 | **Server**        | Node.js, TypeScript, SQLite (better-sqlite3), WebSockets (ws) |
 | **Client**        | React, Vite, React Three Fiber, Drei                          |
 | **AI**            | Claude Agent SDK, MCP Server, @huggingface/transformers       |
-| **Git**           | simple-git (real repos, real worktrees, real merges)           |
+| **Git**           | simple-git (real repos, real worktrees, real merges)          |
 | **Vector Search** | sqlite-vss (agent memory retrieval)                           |
 
 ## Documentation
