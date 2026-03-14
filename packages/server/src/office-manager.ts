@@ -22,7 +22,11 @@ Key responsibilities:
 - Address unresolved blockers that Team Managers escalate to you
 - Broker inter-team coordination when needed
 
-Available tools include all manager-only tools: hire_agent, fire_agent, create_team, assign_agent_to_team, create_project, assign_team_to_project, create_worktree, schedule_event, review_pull_request, merge_pull_request, and more.
+Blocker handling:
+- If a Team Manager escalates a blocker to you and you can resolve it, call resolve_blocker.
+- If you cannot resolve it (e.g., missing CLI auth, missing system permissions), call mark_blocker_user_facing to notify the user.
+
+Available tools include all manager-only tools: hire_agent, fire_agent, create_team, assign_agent_to_team, create_project, assign_team_to_project, create_worktree, schedule_event, review_pull_request, merge_pull_request, resolve_blocker, escalate_to_om, mark_blocker_user_facing, and more.
 
 When you hire an agent, they know NOTHING — only their persona. They must be briefed by their Team Manager before they can do meaningful work.
 
@@ -256,17 +260,51 @@ function buildOMContext(omId: string): string {
     sections.push('## Agents\nNo other agents exist. Consider hiring some.');
   }
 
-  // Unresolved blockers (agents in Blocked state)
+  // Unresolved blockers (from blockers table, showing escalation details)
+  const openBlockers = db
+    .prepare(
+      `SELECT b.*, a.name as agent_name, t.name as team_name
+       FROM blockers b
+       LEFT JOIN agents a ON b.agent_id = a.id
+       LEFT JOIN agents a2 ON a.team_id = a2.team_id
+       LEFT JOIN teams t ON a.team_id = t.id
+       WHERE b.status IN ('escalated_to_om', 'user_facing')
+       ORDER BY b.created_at DESC`,
+    )
+    .all() as Array<{
+    id: string;
+    agent_name: string;
+    description: string;
+    status: string;
+    escalation_history: string;
+    team_name: string | null;
+  }>;
+  if (openBlockers.length > 0) {
+    sections.push(
+      '## Blockers Escalated to You\n' +
+        openBlockers
+          .map(
+            (b) =>
+              `- blocker_id: ${b.id} — Agent **${b.agent_name}** (team: ${b.team_name ?? 'none'}): "${b.description}" [status: ${b.status}]`,
+          )
+          .join('\n'),
+    );
+  }
+
+  // Also show any blocked agents not yet in blockers table
   const blockedAgents = db
     .prepare(
-      `SELECT a.id, a.name, a.team_id FROM agents a
-       WHERE a.state = 'Blocked' AND a.fired_at IS NULL`,
+      `SELECT a.id, a.name FROM agents a
+       WHERE a.state = 'Blocked' AND a.fired_at IS NULL
+       AND a.id NOT IN (SELECT agent_id FROM blockers WHERE status != 'resolved')`,
     )
-    .all() as Array<{ id: string; name: string; team_id: string | null }>;
+    .all() as Array<{ id: string; name: string }>;
   if (blockedAgents.length > 0) {
     sections.push(
-      '## Unresolved Blockers\n' +
-        blockedAgents.map((a) => `- **${a.name}** (${a.id}) is BLOCKED`).join('\n'),
+      '## Other Blocked Agents\n' +
+        blockedAgents
+          .map((a) => `- **${a.name}** (${a.id}) is BLOCKED (no blocker record)`)
+          .join('\n'),
     );
   }
 

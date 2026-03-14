@@ -84,8 +84,12 @@ export async function handleDeleteProject(
 
   if (!project) return error(`Project "${projectId}" not found`);
 
-  // Remove DB records (tasks, PRs, worktrees, team refs, then project)
+  // Remove DB records (blockers, tasks, PRs, worktrees, team refs, then project)
   const deleteTx = db.transaction(() => {
+    // Delete blockers referencing tasks in this project
+    db.prepare(
+      'DELETE FROM blockers WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)',
+    ).run(projectId);
     db.prepare('DELETE FROM tasks WHERE project_id = ?').run(projectId);
     db.prepare('DELETE FROM pull_requests WHERE project_id = ?').run(projectId);
     db.prepare('DELETE FROM worktrees WHERE project_id = ?').run(projectId);

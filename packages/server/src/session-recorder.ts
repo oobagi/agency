@@ -9,6 +9,11 @@ import type {
   SessionErrorData,
 } from './providers/types.js';
 import { registerSession, addSessionTokens, unregisterSession } from './context-monitor.js';
+import {
+  registerHungDetectorSession,
+  onToolCallComplete,
+  unregisterHungDetectorSession,
+} from './hung-session-detector.js';
 
 // ---------- WebSocket broadcast ----------
 
@@ -78,8 +83,9 @@ export class SessionRecorder {
       abort: session.abort,
     });
 
-    // Register with context monitor (estimate initial context from system prompt)
+    // Register with context monitor and hung detector
     registerSession(this.sessionId, this.agentId, model, 0);
+    registerHungDetectorSession(this.sessionId, this.agentId, simNow());
 
     // Start consuming events in the background
     this.consumeEvents(session.events).catch((err) => {
@@ -149,8 +155,9 @@ export class SessionRecorder {
           );
         }
 
-        // Update context monitor with estimated tokens from result
+        // Update context monitor and hung detector
         addSessionTokens(this.sessionId, resultJson.length);
+        onToolCallComplete(this.sessionId, this.simNow());
         break;
       }
 
@@ -161,6 +168,7 @@ export class SessionRecorder {
            WHERE id = ?`,
         ).run(simTime, data.tokenEstimate, this.dbSessionId);
         unregisterSession(this.sessionId);
+        unregisterHungDetectorSession(this.sessionId);
         break;
       }
 
@@ -172,6 +180,7 @@ export class SessionRecorder {
           this.dbSessionId,
         );
         unregisterSession(this.sessionId);
+        unregisterHungDetectorSession(this.sessionId);
         break;
       }
     }
@@ -193,6 +202,7 @@ export function interruptSession(
 
   active.abort();
   activeSessions.delete(sessionId);
+  unregisterHungDetectorSession(sessionId);
 
   const simTime = simNow().toISOString();
   getDb()

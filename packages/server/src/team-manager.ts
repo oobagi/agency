@@ -34,6 +34,10 @@ Communication rules (CRITICAL):
 
 When assigning work, walk to the idle agent, speak to brief them, then they will begin_task at their desk.
 
+Blocker handling:
+- If you can resolve a blocker (e.g., reassign work, provide guidance), call resolve_blocker with the blocker_id.
+- If you cannot resolve it, call escalate_to_om with the blocker_id, then physically walk to the Office Manager (walk_to_agent) and speak to explain the situation.
+
 Be proactive. Check on idle agents, review pending PRs, and keep your team productive.`;
 }
 
@@ -87,7 +91,12 @@ export function triggerTMTaskComplete(teamId: string, agentId: string, taskTitle
 
 // ── Trigger: Team member blocker report ────────────────────────────
 
-export function triggerTMBlockerReport(teamId: string, agentId: string, description: string): void {
+export function triggerTMBlockerReport(
+  teamId: string,
+  agentId: string,
+  description: string,
+  blockerId?: string,
+): void {
   const db = getDb();
   const tm = db
     .prepare(
@@ -108,6 +117,7 @@ export function triggerTMBlockerReport(teamId: string, agentId: string, descript
   spawnTMSession(tm.id, 'blocker_report', {
     blockedAgent: agentId,
     blockerDescription: description,
+    ...(blockerId ? { blockerId } : {}),
   }).catch((err) => {
     console.error(`[team-manager] Blocker session failed for ${tm.id}:`, err);
   });
@@ -187,9 +197,10 @@ function buildTMContext(
     const blockedAgent = db
       .prepare('SELECT name FROM agents WHERE id = ?')
       .get(triggerData.blockedAgent) as { name: string } | undefined;
+    const blockerIdInfo = triggerData.blockerId ? ` (blocker_id: ${triggerData.blockerId})` : '';
     sections.push(
-      `Agent **${blockedAgent?.name ?? triggerData.blockedAgent}** has reported a blocker: "${triggerData.blockerDescription}". ` +
-        'Try to resolve it. If you cannot, escalate to the Office Manager.',
+      `Agent **${blockedAgent?.name ?? triggerData.blockedAgent}** has reported a blocker${blockerIdInfo}: "${triggerData.blockerDescription}". ` +
+        'Try to resolve it by calling resolve_blocker. If you cannot resolve it, call escalate_to_om and then physically walk to the Office Manager to explain.',
     );
   }
 
@@ -300,12 +311,23 @@ function buildTMContext(
     );
   }
 
-  // Blocked agents on this team
+  // Blocked agents on this team (with blocker details)
   const blocked = members.filter((m) => m.state === 'Blocked');
   if (blocked.length > 0) {
-    sections.push(
-      '## Blocked Agents\n' + blocked.map((a) => `- **${a.name}** (${a.id}) is BLOCKED`).join('\n'),
-    );
+    const blockerDetails = blocked.map((a) => {
+      const blocker = db
+        .prepare(
+          `SELECT id, description, status FROM blockers
+           WHERE agent_id = ? AND status != 'resolved'
+           ORDER BY created_at DESC LIMIT 1`,
+        )
+        .get(a.id) as { id: string; description: string; status: string } | undefined;
+      if (blocker) {
+        return `- **${a.name}** (${a.id}) is BLOCKED — blocker_id: ${blocker.id}, status: ${blocker.status}, reason: "${blocker.description}"`;
+      }
+      return `- **${a.name}** (${a.id}) is BLOCKED`;
+    });
+    sections.push('## Blocked Agents\n' + blockerDetails.join('\n'));
   }
 
   // Recent chat logs for TM

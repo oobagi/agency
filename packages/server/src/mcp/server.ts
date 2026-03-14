@@ -36,6 +36,11 @@ import {
   handleSetState,
 } from '../movement.js';
 import { handleTriggerCompression } from '../memory-compression.js';
+import {
+  handleResolveBlocker,
+  handleEscalateToOM,
+  handleMarkBlockerUserFacing,
+} from '../handlers/blocker-handlers.js';
 
 // ---------- Sim clock accessor (set from index.ts) ----------
 
@@ -79,6 +84,9 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   review_pull_request: handleReviewPullRequest,
   merge_pull_request: handleMergePullRequest,
   trigger_compression: handleTriggerCompression,
+  resolve_blocker: handleResolveBlocker,
+  escalate_to_om: handleEscalateToOM,
+  mark_blocker_user_facing: handleMarkBlockerUserFacing,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------

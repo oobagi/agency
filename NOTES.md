@@ -2,12 +2,12 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-Completed phases (1.0 through 5.0) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
+Completed phases (1.0 through 5.1) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
 
 Key facts from completed phases:
 
 - All completed on 2026-03-13
-- 25 of 26 MCP tools have real handlers (only checkpoint_agent remains as a stub)
+- 28 of 29 MCP tools have real handlers (only checkpoint_agent remains as a stub)
 - Agent SDK uses Zod v3 internally; tool registry uses Zod v4 — bridged via buildZod3Shape() in claude-agent-sdk.ts
 - Movement render loop runs at 60Hz real-time (decoupled from sim clock) for smooth animation
 - OM sessions fire at 08:05, 13:05, 17:00 (5 min after arrive/return to ensure OM has arrived first)
@@ -15,20 +15,15 @@ Key facts from completed phases:
 - Memory compression uses @huggingface/transformers (384-dim embeddings) + sqlite-vss for vector search
 - buildSessionContext is now async and uses vector similarity search for memory injection
 - Context monitor tracks estimated tokens per session; alerts TM at 80%, force-compresses at 95%
+- Blockers table tracks escalation chain: agent → TM → OM → user with full history
+- resolve_blocker, escalate_to_om, mark_blocker_user_facing MCP tools for managers
+- Hung session detector auto-interrupts after 30 sim minutes without tool call, transitions to Blocked
+- User-facing blockers broadcast via WebSocket; REST endpoint POST /api/blockers/:id/resolve for user resolution
 - startWalking() exported from movement.ts with optional onArrival callback
 - speak rejects if no agents within proximity; send_to_manager auto-walks then delivers
 - Task lifecycle: pending → in_progress → completed or blocked
 - Git operations use simple-git; create_project inits real repos, merge_pull_request does real merges
 - Hard constraint 7 enforced: agents cannot review or merge their own PRs
-
-Phase 5.1 — Blocker Detection and Escalation Chain
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
 
 Phase 6.0 — Meeting System with Physical Arrival Gating
 

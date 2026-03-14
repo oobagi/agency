@@ -4,6 +4,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { transitionAgentState } from '../state-machine.js';
 import { triggerTMTaskComplete, triggerTMBlockerReport } from '../team-manager.js';
 import { runCompressionForAgent } from '../memory-compression.js';
+import { createBlocker } from '../blockers.js';
 
 // ── create_task (manager-only) ──────────────────────────────────────
 
@@ -236,7 +237,7 @@ export async function handleReportBlocker(
     return error(result.error!);
   }
 
-  const simTime = simNow().toISOString();
+  const simTime = simNow();
 
   // If a task_id was provided, set it to blocked
   if (taskId) {
@@ -252,16 +253,20 @@ export async function handleReportBlocker(
     console.log(`[report_blocker] ${agent.name} blocked: ${description}`);
   }
 
+  // Create persistent blocker record
+  const blockerId = createBlocker(callerAgentId, description, simTime, taskId ?? undefined);
+
   // Fire Team Manager trigger if agent has a team
   if (agent.team_id) {
-    triggerTMBlockerReport(agent.team_id, callerAgentId, description);
+    triggerTMBlockerReport(agent.team_id, callerAgentId, description, blockerId);
   }
 
   return ok({
+    blocker_id: blockerId,
     status: 'blocked',
     description,
     task_id: taskId,
-    sim_time: simTime,
+    sim_time: simTime.toISOString(),
     message: `Blocker reported. Your Team Manager has been notified.`,
   });
 }

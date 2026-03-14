@@ -50,6 +50,14 @@ import {
 import { processEndOfDayCompression } from './memory-compression.js';
 import { setContextMonitorSimClock, setContextAlertCallback } from './context-monitor.js';
 import { triggerTMBlockerReport } from './team-manager.js';
+import {
+  setBlockerBroadcast,
+  getOpenBlockers,
+  getBlocker,
+  getBlockersForAgent,
+  resolveBlocker,
+} from './blockers.js';
+import { setHungDetectorSimClock, processHungSessionChecks } from './hung-session-detector.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -68,6 +76,7 @@ setMovementSimClock(
 );
 setCommunicationSimClock(() => clock.now());
 setContextMonitorSimClock(() => clock.now());
+setHungDetectorSimClock(() => clock.now());
 
 // Wire context monitor alert → Team Manager blocker trigger
 setContextAlertCallback((teamId, agentId, agentName, pct) => {
@@ -291,6 +300,40 @@ const server = http.createServer(async (req, res) => {
     return json(res, result);
   }
 
+  // ── Blocker endpoints ──────────────────────────────────────────────
+  if (url === '/api/blockers' && method === 'GET') {
+    return json(res, getOpenBlockers());
+  }
+
+  if (url?.match(/^\/api\/blockers\/[^/]+$/) && method === 'GET') {
+    const blockerId = url.split('/')[3];
+    const blocker = getBlocker(blockerId);
+    if (!blocker) return json(res, { error: 'Blocker not found' }, 404);
+    return json(res, blocker);
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/blockers$/) && method === 'GET') {
+    const agentId = url.split('/')[3];
+    return json(res, getBlockersForAgent(agentId));
+  }
+
+  if (url?.match(/^\/api\/blockers\/[^/]+\/resolve$/) && method === 'POST') {
+    try {
+      const blockerId = url.split('/')[3];
+      const body = JSON.parse(await readBody(req));
+      const resolution = body.resolution;
+      if (typeof resolution !== 'string' || !resolution.trim()) {
+        return json(res, { error: 'resolution is required' }, 400);
+      }
+      const result = resolveBlocker(blockerId, 'user', resolution.trim(), clock.now());
+      if (!result.success) return json(res, { error: result.error }, 400);
+      return json(res, { resolved: true, blockerId });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
+  }
+
   if (url === '/api/sim/speed' && method === 'POST') {
     try {
       const body = JSON.parse(await readBody(req));
@@ -370,6 +413,16 @@ setSpeakBroadcast((data) => {
   }
 });
 
+// ── Blocker broadcast (user-facing blockers → WebSocket clients) ──
+setBlockerBroadcast((data) => {
+  const message = JSON.stringify({ type: 'blocker_user_facing', ...data });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
 clock.onTick((simTime) => {
   // Run scheduled jobs on every tick
   processSchedulerTick(simTime);
@@ -379,6 +432,9 @@ clock.onTick((simTime) => {
 
   // Check for end-of-day memory compression (17:00)
   processEndOfDayCompression(simTime);
+
+  // Check for hung sessions (no tool call for 30+ sim minutes)
+  processHungSessionChecks(simTime);
 
   const message = JSON.stringify({
     type: 'tick',

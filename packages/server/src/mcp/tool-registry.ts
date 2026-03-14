@@ -253,6 +253,35 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
     }),
     managerOnly: true,
   },
+  resolve_blocker: {
+    description:
+      'Resolve a blocker for an agent. Transitions the agent from Blocked back to Idle so they can resume work.',
+    inputSchema: z.object({
+      blocker_id: z.string().describe('ID of the blocker to resolve'),
+      resolution: z.string().describe('Description of how the blocker was resolved'),
+    }),
+    managerOnly: true,
+  },
+  escalate_to_om: {
+    description:
+      'Escalate an unresolvable blocker to the Office Manager. You must physically walk to the Office Manager after calling this to explain the situation.',
+    inputSchema: z.object({
+      blocker_id: z.string().describe('ID of the blocker to escalate'),
+      notes: z.string().describe('Why you cannot resolve this blocker and what you tried'),
+    }),
+    managerOnly: true,
+  },
+  mark_blocker_user_facing: {
+    description:
+      'Mark a blocker as requiring user intervention. The user will be notified via the UI.',
+    inputSchema: z.object({
+      blocker_id: z.string().describe('ID of the blocker'),
+      notes: z
+        .string()
+        .describe('What the user needs to do to resolve this (e.g., "Run claude in terminal")'),
+    }),
+    managerOnly: true,
+  },
 };
 
 // ---------- Manager-only tool set (quick lookup) ----------
