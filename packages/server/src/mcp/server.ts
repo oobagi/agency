@@ -10,6 +10,7 @@ import {
   handleCreateTeam,
   handleAssignAgentToTeam,
 } from '../handlers/agent-management.js';
+import { handleScheduleEvent } from '../scheduler.js';
 
 // ---------- Sim clock accessor (set from index.ts) ----------
 
@@ -32,6 +33,7 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   fire_agent: handleFireAgent,
   create_team: handleCreateTeam,
   assign_agent_to_team: handleAssignAgentToTeam,
+  schedule_event: handleScheduleEvent,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------

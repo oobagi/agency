@@ -76,12 +76,12 @@ Notes for the next agent: Import SessionRecorder from ./session-recorder.js. Con
 
 Phase 3.3 — Daily Schedule Automation
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Scheduler module (src/scheduler.ts) with scheduled jobs runner, daily schedule automation, missed job handling, and the schedule_event MCP tool handler. processTick() runs on every sim clock tick, checks the scheduled_jobs table for due jobs, executes them via registered handlers, and advances recurring jobs to their next occurrence. Four built-in daily job handlers: arrive (→ Arriving), lunch_break (→ Break), return_from_lunch (→ Walking), depart (→ Departing). If an agent is busy when a job fires, it's queued in job_queue and retried when the agent becomes Idle. createDailyScheduleForAgent() creates four recurring daily jobs at 08:00, 12:00, 13:00, 17:00 — called automatically when hire_agent fires. removeScheduleForAgent() cleans up on fire_agent. handleMissedJobsOnBoot() runs at server start, fires missed fire_immediately jobs and skips skip_to_next ones, then advances all to their next recurrence. schedule_event MCP tool registered as real handler for managers to create custom scheduled jobs. REST endpoints: GET /api/scheduled-jobs, GET /api/agents/:id/scheduled-jobs, GET /api/job-queue. registerJobHandler() exported for future phases to add custom job types.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: None.
+Issues encountered: None.
+Notes for the next agent: Import processTick from ./scheduler.js — it's called on every sim clock tick from index.ts. Import createDailyScheduleForAgent/removeScheduleForAgent for agent lifecycle. Use registerJobHandler(jobType, handler) to add new job types (e.g., Office Manager morning_planning in Phase 4.0). The recurrence field currently supports 'daily' only; extend advanceJobSchedule() for other patterns. Job handlers return false to queue a job when the agent is busy. State transitions in handlers are direct DB updates — they'll be replaced with proper state machine validation in Phase 4.3.
 
 Phase 4.0 — Office Manager Autonomous Loop
 

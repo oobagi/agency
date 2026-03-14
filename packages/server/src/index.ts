@@ -18,6 +18,12 @@ import {
   interruptSession,
 } from './session-recorder.js';
 import type { SessionEvent } from './providers/types.js';
+import {
+  processTick as processSchedulerTick,
+  handleMissedJobsOnBoot,
+  getScheduledJobs,
+  getJobQueue,
+} from './scheduler.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -134,6 +140,20 @@ const server = http.createServer(async (req, res) => {
     return json(res, { interrupted: true, sessionId });
   }
 
+  // ── Scheduler endpoints ──────────────────────────────────────────
+  if (url === '/api/scheduled-jobs' && method === 'GET') {
+    return json(res, getScheduledJobs());
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/scheduled-jobs$/) && method === 'GET') {
+    const agentId = url.split('/')[3];
+    return json(res, getScheduledJobs(agentId));
+  }
+
+  if (url === '/api/job-queue' && method === 'GET') {
+    return json(res, getJobQueue());
+  }
+
   if (url === '/api/sim/speed' && method === 'POST') {
     try {
       const body = JSON.parse(await readBody(req));
@@ -194,6 +214,9 @@ wss.on('connection', (ws) => {
 });
 
 clock.onTick((simTime) => {
+  // Run scheduled jobs on every tick
+  processSchedulerTick(simTime);
+
   const message = JSON.stringify({
     type: 'tick',
     simTime: simTime.toISOString(),
@@ -206,6 +229,9 @@ clock.onTick((simTime) => {
     }
   }
 });
+
+// Handle any jobs that were missed while the server was down
+handleMissedJobsOnBoot(clock.now());
 
 clock.start();
 console.log(

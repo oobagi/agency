@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from '../db.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { createDailyScheduleForAgent, removeScheduleForAgent } from '../scheduler.js';
 
 // ── Desk layout constants ──────────────────────────────────────────
 // Desks are arranged in rows. Each team gets a block of desks.
@@ -62,6 +63,9 @@ export async function handleHireAgent(
      VALUES (?, ?, 'agent', ?, NULL, NULL, 'Idle', 0, 0, 0, ?, ?, ?)`,
   ).run(agentId, persona.name, persona.system_prompt, simTime, now, now);
 
+  // Create the four daily scheduled jobs (arrive, lunch, return, depart)
+  createDailyScheduleForAgent(agentId, simNow());
+
   console.log(`[hire_agent] Hired "${persona.name}" (${agentId}) by ${callerAgentId}`);
 
   return ok({
@@ -121,6 +125,9 @@ export async function handleFireAgent(
   });
 
   fireTx();
+
+  // Remove all scheduled jobs for this agent
+  removeScheduleForAgent(agentId);
 
   console.log(`[fire_agent] Fired "${agent.name}" (${agentId})`);
 
