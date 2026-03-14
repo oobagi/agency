@@ -28,11 +28,19 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
        LEFT JOIN teams t ON a.team_id = t.id
        WHERE a.id = ?`,
     )
-    .get(agentId) as {
-      id: string; name: string; role: string; persona: string;
-      team_id: string | null; team_name: string | null; project_id: string | null;
-      state: string; desk_id: string | null;
-    } | undefined;
+    .get(agentId) as
+    | {
+        id: string;
+        name: string;
+        role: string;
+        persona: string;
+        team_id: string | null;
+        team_name: string | null;
+        project_id: string | null;
+        state: string;
+        desk_id: string | null;
+      }
+    | undefined;
 
   if (!agent) return 'Error: Agent not found.';
 
@@ -40,7 +48,9 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
   sections.push(agent.persona);
 
   // 2. Current sim time
-  sections.push(`Current sim time: ${simTime.toISOString()}\nSim day: ${simTime.toISOString().split('T')[0]}`);
+  sections.push(
+    `Current sim time: ${simTime.toISOString()}\nSim day: ${simTime.toISOString().split('T')[0]}`,
+  );
 
   // 3. Current task
   if (taskContext) {
@@ -48,9 +58,7 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
   } else {
     // Check for in-progress or pending tasks
     const currentTask = db
-      .prepare(
-        `SELECT * FROM tasks WHERE agent_id = ? AND status = 'in_progress' LIMIT 1`,
-      )
+      .prepare(`SELECT * FROM tasks WHERE agent_id = ? AND status = 'in_progress' LIMIT 1`)
       .get(agentId) as { id: string; title: string; description: string } | undefined;
 
     if (currentTask) {
@@ -83,14 +91,23 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
        ORDER BY cl.created_at DESC LIMIT 10`,
     )
     .all(agentId) as Array<{
-      message: string; speaker_name: string | null; speaker_type: string; sim_time: string;
-    }>;
+    message: string;
+    speaker_name: string | null;
+    speaker_type: string;
+    sim_time: string;
+  }>;
 
   if (chatLogs.length > 0) {
-    sections.push('## Recent Messages\n' + chatLogs.reverse().map((cl) => {
-      const speaker = cl.speaker_type === 'user' ? 'User' : (cl.speaker_name ?? 'System');
-      return `- [${cl.sim_time}] ${speaker}: ${cl.message}`;
-    }).join('\n'));
+    sections.push(
+      '## Recent Messages\n' +
+        chatLogs
+          .reverse()
+          .map((cl) => {
+            const speaker = cl.speaker_type === 'user' ? 'User' : (cl.speaker_name ?? 'System');
+            return `- [${cl.sim_time}] ${speaker}: ${cl.message}`;
+          })
+          .join('\n'),
+    );
   }
 
   // 5. Memory chunks (top 3 — plain text match for now, vector search in Phase 5.0)
@@ -103,9 +120,10 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
     .all(agentId) as Array<{ content: string; sim_day: string }>;
 
   if (memories.length > 0) {
-    sections.push('## Memory (from previous days)\n' + memories.map((m) =>
-      `### ${m.sim_day}\n${m.content}`,
-    ).join('\n\n'));
+    sections.push(
+      '## Memory (from previous days)\n' +
+        memories.map((m) => `### ${m.sim_day}\n${m.content}`).join('\n\n'),
+    );
   }
 
   // 6. Team context (for non-managers only — managers get their own context)
@@ -142,7 +160,8 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
   // Assemble and enforce token budget
   let context = sections.join('\n\n');
   if (context.length > MAX_CONTEXT_CHARS) {
-    context = context.substring(0, MAX_CONTEXT_CHARS) + '\n\n[Context truncated due to token budget]';
+    context =
+      context.substring(0, MAX_CONTEXT_CHARS) + '\n\n[Context truncated due to token budget]';
   }
 
   return context;

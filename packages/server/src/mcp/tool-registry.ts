@@ -36,8 +36,7 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
     managerOnly: false,
   },
   walk_to_agent: {
-    description:
-      'Walk to another agent\'s current location. Required before you can speak to them.',
+    description: "Walk to another agent's current location. Required before you can speak to them.",
     inputSchema: z.object({
       target_agent_id: z.string().describe('ID of the agent to walk to'),
     }),
@@ -66,8 +65,7 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
     managerOnly: false,
   },
   send_to_manager: {
-    description:
-      'Walk to your Team Manager and deliver a message. Handles the walk automatically.',
+    description: 'Walk to your Team Manager and deliver a message. Handles the walk automatically.',
     inputSchema: z.object({
       message: z.string().describe('The message to deliver to your manager'),
     }),
@@ -92,8 +90,7 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
     managerOnly: false,
   },
   open_pull_request: {
-    description:
-      'Open a pull request from your branch to the team integration branch.',
+    description: 'Open a pull request from your branch to the team integration branch.',
     inputSchema: z.object({
       title: z.string().describe('PR title'),
       description: z.string().describe('PR description'),
@@ -106,16 +103,14 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
 
   // ── State management tools ──────────────────────────────────────
   set_state: {
-    description:
-      'Transition to a new state. Validates against the legal transition map.',
+    description: 'Transition to a new state. Validates against the legal transition map.',
     inputSchema: z.object({
       state: z.enum(AGENT_STATES).describe('Target state'),
     }),
     managerOnly: false,
   },
   report_blocker: {
-    description:
-      'Report a blocker. Sets you to Blocked state and begins the escalation chain.',
+    description: 'Report a blocker. Sets you to Blocked state and begins the escalation chain.',
     inputSchema: z.object({
       description: z.string().describe('Description of what is blocking you'),
       task_id: z.string().optional().describe('ID of the blocked task, if applicable'),
@@ -220,8 +215,7 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
     managerOnly: true,
   },
   trigger_compression: {
-    description:
-      'Force an early memory compression and session refresh for an agent.',
+    description: 'Force an early memory compression and session refresh for an agent.',
     inputSchema: z.object({
       agent_id: z.string().describe('ID of the agent to compress'),
     }),

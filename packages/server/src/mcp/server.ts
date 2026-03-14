@@ -59,19 +59,13 @@ export function createMcpServer(): McpServer {
   for (const [toolName, def] of Object.entries(TOOL_DEFINITIONS)) {
     // Use .passthrough() so _agent_id (injected by provider abstraction) survives validation
     const schema =
-      def.inputSchema instanceof z.ZodObject
-        ? def.inputSchema.passthrough()
-        : def.inputSchema;
+      def.inputSchema instanceof z.ZodObject ? def.inputSchema.passthrough() : def.inputSchema;
 
     const handler = REAL_HANDLERS[toolName]
       ? createRealHandler(toolName, REAL_HANDLERS[toolName])
       : createStubHandler(toolName);
 
-    server.registerTool(
-      toolName,
-      { description: def.description, inputSchema: schema },
-      handler,
-    );
+    server.registerTool(toolName, { description: def.description, inputSchema: schema }, handler);
   }
 
   return server;
@@ -122,9 +116,7 @@ function createRealHandler(
 
 // ---------- Stub handler factory ----------
 
-function createStubHandler(
-  toolName: string,
-): (args: unknown) => Promise<CallToolResult> {
+function createStubHandler(toolName: string): (args: unknown) => Promise<CallToolResult> {
   return async (rawArgs: unknown): Promise<CallToolResult> => {
     const args = (rawArgs ?? {}) as Record<string, unknown>;
     const agentId = args._agent_id as string | undefined;

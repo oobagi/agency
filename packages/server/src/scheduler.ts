@@ -84,7 +84,11 @@ function handleArrive(agentId: string, _payload: Record<string, unknown>, _simTi
   return true;
 }
 
-function handleLunchBreak(agentId: string, _payload: Record<string, unknown>, _simTime: Date): boolean {
+function handleLunchBreak(
+  agentId: string,
+  _payload: Record<string, unknown>,
+  _simTime: Date,
+): boolean {
   const state = getAgentState(agentId);
   if (!state) return false;
 
@@ -105,7 +109,11 @@ function handleLunchBreak(agentId: string, _payload: Record<string, unknown>, _s
   return true;
 }
 
-function handleReturnFromLunch(agentId: string, _payload: Record<string, unknown>, _simTime: Date): boolean {
+function handleReturnFromLunch(
+  agentId: string,
+  _payload: Record<string, unknown>,
+  _simTime: Date,
+): boolean {
   const state = getAgentState(agentId);
   if (!state) return false;
 
@@ -276,9 +284,7 @@ export async function handleScheduleEvent(
   const db = getDb();
 
   // Verify agent exists
-  const agent = db
-    .prepare('SELECT id FROM agents WHERE id = ? AND fired_at IS NULL')
-    .get(agentId);
+  const agent = db.prepare('SELECT id FROM agents WHERE id = ? AND fired_at IS NULL').get(agentId);
   if (!agent) return mcpError(`Agent "${agentId}" not found or has been fired`);
 
   const jobId = crypto.randomUUID();
@@ -292,17 +298,19 @@ export async function handleScheduleEvent(
   console.log(`[scheduler] Scheduled ${jobType} for agent ${agentId} at ${simTimeStr}`);
 
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        job_id: jobId,
-        agent_id: agentId,
-        job_type: jobType,
-        sim_time: simTime.toISOString(),
-        recurrence,
-        message: `Scheduled "${jobType}" for agent ${agentId} at ${simTime.toISOString()}.`,
-      }),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          job_id: jobId,
+          agent_id: agentId,
+          job_type: jobType,
+          sim_time: simTime.toISOString(),
+          recurrence,
+          message: `Scheduled "${jobType}" for agent ${agentId} at ${simTime.toISOString()}.`,
+        }),
+      },
+    ],
   };
 }
 
@@ -322,10 +330,14 @@ export function getJobQueue(agentId?: string): unknown[] {
   const db = getDb();
   if (agentId) {
     return db
-      .prepare("SELECT * FROM job_queue WHERE agent_id = ? AND status = 'pending' ORDER BY queued_at ASC")
+      .prepare(
+        "SELECT * FROM job_queue WHERE agent_id = ? AND status = 'pending' ORDER BY queued_at ASC",
+      )
       .all(agentId);
   }
-  return db.prepare("SELECT * FROM job_queue WHERE status = 'pending' ORDER BY queued_at ASC").all();
+  return db
+    .prepare("SELECT * FROM job_queue WHERE status = 'pending' ORDER BY queued_at ASC")
+    .all();
 }
 
 // ── Internal helpers ───────────────────────────────────────────────
@@ -397,9 +409,10 @@ function processJobQueue(simTime: Date): void {
     const executed = handler(qJob.agent_id, payload, simTime);
 
     if (executed) {
-      db.prepare(
-        "UPDATE job_queue SET status = 'completed', completed_at = ? WHERE id = ?",
-      ).run(simTime.toISOString(), qJob.id);
+      db.prepare("UPDATE job_queue SET status = 'completed', completed_at = ? WHERE id = ?").run(
+        simTime.toISOString(),
+        qJob.id,
+      );
     }
   }
 }

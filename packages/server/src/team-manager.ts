@@ -42,7 +42,9 @@ Be proactive. Check on idle agents, review pending PRs, and keep your team produ
 export function triggerTMDeskArrival(tmAgentId: string): void {
   // Don't spawn if already in a session
   if (getActiveSessionForAgent(tmAgentId)) {
-    console.log(`[team-manager] ${tmAgentId} already has active session, skipping desk arrival trigger`);
+    console.log(
+      `[team-manager] ${tmAgentId} already has active session, skipping desk arrival trigger`,
+    );
     return;
   }
 
@@ -56,16 +58,22 @@ export function triggerTMDeskArrival(tmAgentId: string): void {
 export function triggerTMTaskComplete(teamId: string, agentId: string, taskTitle: string): void {
   const db = getDb();
   const tm = db
-    .prepare("SELECT id FROM agents WHERE team_id = ? AND role = 'team_manager' AND fired_at IS NULL")
+    .prepare(
+      "SELECT id FROM agents WHERE team_id = ? AND role = 'team_manager' AND fired_at IS NULL",
+    )
     .get(teamId) as { id: string } | undefined;
 
   if (!tm) {
-    console.log(`[team-manager] No team manager for team ${teamId}, skipping task complete trigger`);
+    console.log(
+      `[team-manager] No team manager for team ${teamId}, skipping task complete trigger`,
+    );
     return;
   }
 
   if (getActiveSessionForAgent(tm.id)) {
-    console.log(`[team-manager] ${tm.id} already has active session, skipping task complete trigger`);
+    console.log(
+      `[team-manager] ${tm.id} already has active session, skipping task complete trigger`,
+    );
     return;
   }
 
@@ -82,7 +90,9 @@ export function triggerTMTaskComplete(teamId: string, agentId: string, taskTitle
 export function triggerTMBlockerReport(teamId: string, agentId: string, description: string): void {
   const db = getDb();
   const tm = db
-    .prepare("SELECT id FROM agents WHERE team_id = ? AND role = 'team_manager' AND fired_at IS NULL")
+    .prepare(
+      "SELECT id FROM agents WHERE team_id = ? AND role = 'team_manager' AND fired_at IS NULL",
+    )
     .get(teamId) as { id: string } | undefined;
 
   if (!tm) {
@@ -118,12 +128,15 @@ async function spawnTMSession(
   const mcpTools = Object.keys(TOOL_DEFINITIONS);
 
   const db = getDb();
-  const tm = db
-    .prepare('SELECT name, team_id FROM agents WHERE id = ?')
-    .get(tmId) as { name: string; team_id: string | null };
+  const tm = db.prepare('SELECT name, team_id FROM agents WHERE id = ?').get(tmId) as {
+    name: string;
+    team_id: string | null;
+  };
 
   const team = tm.team_id
-    ? (db.prepare('SELECT name FROM teams WHERE id = ?').get(tm.team_id) as { name: string } | undefined)
+    ? (db.prepare('SELECT name FROM teams WHERE id = ?').get(tm.team_id) as
+        | { name: string }
+        | undefined)
     : undefined;
 
   const teamName = team?.name ?? 'Unknown Team';
@@ -159,14 +172,16 @@ function buildTMContext(
   // Trigger info
   sections.push(`## Session Trigger: ${trigger}`);
   if (trigger === 'desk_arrival') {
-    sections.push('You have arrived at your desk for the day. Check your team status and assign work to idle agents.');
+    sections.push(
+      'You have arrived at your desk for the day. Check your team status and assign work to idle agents.',
+    );
   } else if (trigger === 'task_complete' && triggerData) {
     const completedAgent = db
       .prepare('SELECT name FROM agents WHERE id = ?')
       .get(triggerData.completedBy) as { name: string } | undefined;
     sections.push(
       `Agent **${completedAgent?.name ?? triggerData.completedBy}** has completed task "${triggerData.taskTitle}". ` +
-      'Review their work and assign new tasks if available.',
+        'Review their work and assign new tasks if available.',
     );
   } else if (trigger === 'blocker_report' && triggerData) {
     const blockedAgent = db
@@ -174,14 +189,14 @@ function buildTMContext(
       .get(triggerData.blockedAgent) as { name: string } | undefined;
     sections.push(
       `Agent **${blockedAgent?.name ?? triggerData.blockedAgent}** has reported a blocker: "${triggerData.blockerDescription}". ` +
-      'Try to resolve it. If you cannot, escalate to the Office Manager.',
+        'Try to resolve it. If you cannot, escalate to the Office Manager.',
     );
   }
 
   // Team info
-  const tm = db
-    .prepare('SELECT team_id FROM agents WHERE id = ?')
-    .get(tmId) as { team_id: string | null };
+  const tm = db.prepare('SELECT team_id FROM agents WHERE id = ?').get(tmId) as {
+    team_id: string | null;
+  };
 
   if (!tm?.team_id) {
     sections.push('## Team\nYou are not assigned to a team yet.');
@@ -189,12 +204,14 @@ function buildTMContext(
   }
 
   const teamId = tm.team_id;
-  const team = db
-    .prepare('SELECT * FROM teams WHERE id = ?')
-    .get(teamId) as { id: string; name: string; project_id: string | null } | undefined;
+  const team = db.prepare('SELECT * FROM teams WHERE id = ?').get(teamId) as
+    | { id: string; name: string; project_id: string | null }
+    | undefined;
 
   if (team) {
-    sections.push(`## Your Team: ${team.name}\nTeam ID: ${team.id}\nProject: ${team.project_id ?? 'none'}`);
+    sections.push(
+      `## Your Team: ${team.name}\nTeam ID: ${team.id}\nProject: ${team.project_id ?? 'none'}`,
+    );
   }
 
   // Team members
@@ -204,13 +221,23 @@ function buildTMContext(
        WHERE a.team_id = ? AND a.id != ? AND a.fired_at IS NULL`,
     )
     .all(teamId, tmId) as Array<{
-      id: string; name: string; role: string; state: string; desk_id: string | null;
-    }>;
+    id: string;
+    name: string;
+    role: string;
+    state: string;
+    desk_id: string | null;
+  }>;
 
   if (members.length > 0) {
-    sections.push('## Team Members\n' + members.map((m) =>
-      `- **${m.name}** (${m.id}): role=${m.role}, state=${m.state}, desk=${m.desk_id ? 'yes' : 'no'}`,
-    ).join('\n'));
+    sections.push(
+      '## Team Members\n' +
+        members
+          .map(
+            (m) =>
+              `- **${m.name}** (${m.id}): role=${m.role}, state=${m.state}, desk=${m.desk_id ? 'yes' : 'no'}`,
+          )
+          .join('\n'),
+    );
   } else {
     sections.push('## Team Members\nNo team members yet.');
   }
@@ -224,14 +251,24 @@ function buildTMContext(
        ORDER BY t.priority DESC, t.created_at DESC LIMIT 20`,
     )
     .all(teamId) as Array<{
-      id: string; title: string; description: string; status: string;
-      agent_name: string | null; agent_id: string | null;
-    }>;
+    id: string;
+    title: string;
+    description: string;
+    status: string;
+    agent_name: string | null;
+    agent_id: string | null;
+  }>;
 
   if (tasks.length > 0) {
-    sections.push('## Tasks\n' + tasks.map((t) =>
-      `- [${t.status}] "${t.title}" (${t.id}) — assigned to: ${t.agent_name ?? 'unassigned'}`,
-    ).join('\n'));
+    sections.push(
+      '## Tasks\n' +
+        tasks
+          .map(
+            (t) =>
+              `- [${t.status}] "${t.title}" (${t.id}) — assigned to: ${t.agent_name ?? 'unassigned'}`,
+          )
+          .join('\n'),
+    );
   } else {
     sections.push('## Tasks\nNo tasks exist for your team.');
   }
@@ -246,21 +283,29 @@ function buildTMContext(
        ORDER BY pr.created_at DESC LIMIT 10`,
     )
     .all(teamId) as Array<{
-      id: string; title: string; status: string; author_name: string | null;
-    }>;
+    id: string;
+    title: string;
+    status: string;
+    author_name: string | null;
+  }>;
 
   if (prs.length > 0) {
-    sections.push('## Pull Requests\n' + prs.map((pr) =>
-      `- [${pr.status}] "${pr.title}" by ${pr.author_name ?? 'unknown'} (${pr.id})`,
-    ).join('\n'));
+    sections.push(
+      '## Pull Requests\n' +
+        prs
+          .map(
+            (pr) => `- [${pr.status}] "${pr.title}" by ${pr.author_name ?? 'unknown'} (${pr.id})`,
+          )
+          .join('\n'),
+    );
   }
 
   // Blocked agents on this team
   const blocked = members.filter((m) => m.state === 'Blocked');
   if (blocked.length > 0) {
-    sections.push('## Blocked Agents\n' + blocked.map((a) =>
-      `- **${a.name}** (${a.id}) is BLOCKED`,
-    ).join('\n'));
+    sections.push(
+      '## Blocked Agents\n' + blocked.map((a) => `- **${a.name}** (${a.id}) is BLOCKED`).join('\n'),
+    );
   }
 
   // Recent chat logs for TM
@@ -274,9 +319,13 @@ function buildTMContext(
     .all(tmId) as Array<{ message: string; speaker_name: string | null; sim_time: string }>;
 
   if (chatLogs.length > 0) {
-    sections.push('## Recent Messages\n' + chatLogs.reverse().map((cl) =>
-      `- [${cl.sim_time}] ${cl.speaker_name ?? 'User'}: ${cl.message}`,
-    ).join('\n'));
+    sections.push(
+      '## Recent Messages\n' +
+        chatLogs
+          .reverse()
+          .map((cl) => `- [${cl.sim_time}] ${cl.speaker_name ?? 'User'}: ${cl.message}`)
+          .join('\n'),
+    );
   }
 
   // Available tools

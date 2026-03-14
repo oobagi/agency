@@ -2,7 +2,11 @@ import { query, createSdkMcpServer, tool as sdkTool } from '@anthropic-ai/claude
 import type { Query, SDKMessage, McpServerConfig } from '@anthropic-ai/claude-agent-sdk';
 import crypto from 'node:crypto';
 import { z as z3 } from 'zod';
-import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS, validateAgentPermission } from '../mcp/tool-registry.js';
+import {
+  TOOL_DEFINITIONS,
+  MANAGER_ONLY_TOOLS,
+  validateAgentPermission,
+} from '../mcp/tool-registry.js';
 import type {
   AgenticProvider,
   Session,
@@ -24,7 +28,9 @@ const MCP_SERVER_NAME = 'agency';
  */
 function buildZod3Shape(schema: unknown): Record<string, z3.ZodTypeAny> {
   // Try to extract shape from a ZodObject-like schema
-  const s = schema as { shape?: Record<string, { _def?: { typeName?: string }; description?: string }> };
+  const s = schema as {
+    shape?: Record<string, { _def?: { typeName?: string }; description?: string }>;
+  };
   if (!s?.shape) return {};
 
   const v3Shape: Record<string, z3.ZodTypeAny> = {};
@@ -69,9 +75,7 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
       : config.systemPrompt;
 
     // Build the list of allowed MCP tools with the mcp__agency__ prefix
-    const allowedMcpTools = config.mcpTools.map(
-      (t) => `mcp__${MCP_SERVER_NAME}__${t}`,
-    );
+    const allowedMcpTools = config.mcpTools.map((t) => `mcp__${MCP_SERVER_NAME}__${t}`);
 
     // Create an in-process MCP server with the tools this session can access.
     // We use createSdkMcpServer so the Agent SDK can call our tools in-process
@@ -130,27 +134,22 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
       // Our tool registry uses Zod v4, so we rebuild a Zod v3 passthrough schema.
       const v3Shape = buildZod3Shape(def.inputSchema);
 
-      return sdkTool(
-        name,
-        def.description,
-        v3Shape,
-        async (args: Record<string, unknown>) => {
-          // Permission check for manager-only tools
-          if (MANAGER_ONLY_TOOLS.has(name)) {
-            const check = validateAgentPermission(config.agentId, name);
-            if (!check.allowed) {
-              return {
-                content: [{ type: 'text' as const, text: `Permission denied: ${check.reason}` }],
-              };
-            }
+      return sdkTool(name, def.description, v3Shape, async (args: Record<string, unknown>) => {
+        // Permission check for manager-only tools
+        if (MANAGER_ONLY_TOOLS.has(name)) {
+          const check = validateAgentPermission(config.agentId, name);
+          if (!check.allowed) {
+            return {
+              content: [{ type: 'text' as const, text: `Permission denied: ${check.reason}` }],
+            };
           }
+        }
 
-          // Delegate to the MCP server handler registry
-          // (which routes to real handlers or stubs via mcp/server.ts)
-          const handler = this.getToolHandler(name, config.agentId);
-          return handler(args);
-        },
-      );
+        // Delegate to the MCP server handler registry
+        // (which routes to real handlers or stubs via mcp/server.ts)
+        const handler = this.getToolHandler(name, config.agentId);
+        return handler(args);
+      });
     });
 
     return createSdkMcpServer({
@@ -163,7 +162,9 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
   private getToolHandler(
     toolName: string,
     agentId: string,
-  ): (args: Record<string, unknown>) => Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+  ): (
+    args: Record<string, unknown>,
+  ) => Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     return async (args: Record<string, unknown>) => {
       const { dispatchToolCall } = await import('../mcp/server.js');
       const result = await dispatchToolCall(toolName, { ...args, _agent_id: agentId });
@@ -203,11 +204,7 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
     }
   }
 
-  private messageToEvents(
-    sessionId: string,
-    agentId: string,
-    message: SDKMessage,
-  ): SessionEvent[] {
+  private messageToEvents(sessionId: string, agentId: string, message: SDKMessage): SessionEvent[] {
     const events: SessionEvent[] = [];
     const ts = new Date().toISOString();
 
@@ -232,7 +229,11 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
       }
     }
 
-    if (message.type === 'user' && message.tool_use_result !== null && message.tool_use_result !== undefined) {
+    if (
+      message.type === 'user' &&
+      message.tool_use_result !== null &&
+      message.tool_use_result !== undefined
+    ) {
       // This is a tool result message
       const result = message.tool_use_result;
       events.push({

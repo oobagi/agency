@@ -18,7 +18,16 @@ export type AgentState =
 // ── Transition map (explicit data structure) ───────────────────────
 
 const TRANSITION_MAP: Record<AgentState, AgentState[]> = {
-  Idle: ['Walking', 'Programming', 'Researching', 'Reviewing', 'Meeting', 'Departing', 'Break', 'Blocked'],
+  Idle: [
+    'Walking',
+    'Programming',
+    'Researching',
+    'Reviewing',
+    'Meeting',
+    'Departing',
+    'Break',
+    'Blocked',
+  ],
   Arriving: ['Walking', 'Idle'],
   Walking: ['Idle', 'Meeting', 'Blocked'],
   Researching: ['Idle', 'Walking', 'Blocked', 'Break'],
@@ -46,14 +55,18 @@ export function transitionAgentState(
   const db = getDb();
 
   const agent = db
-    .prepare('SELECT state, desk_id, position_x, position_y, position_z FROM agents WHERE id = ? AND fired_at IS NULL')
-    .get(agentId) as {
-      state: AgentState;
-      desk_id: string | null;
-      position_x: number;
-      position_y: number;
-      position_z: number;
-    } | undefined;
+    .prepare(
+      'SELECT state, desk_id, position_x, position_y, position_z FROM agents WHERE id = ? AND fired_at IS NULL',
+    )
+    .get(agentId) as
+    | {
+        state: AgentState;
+        desk_id: string | null;
+        position_x: number;
+        position_y: number;
+        position_z: number;
+      }
+    | undefined;
 
   if (!agent) {
     return { success: false, error: `Agent "${agentId}" not found or fired` };
@@ -107,8 +120,11 @@ export function transitionAgentState(
 
   // Apply the transition
   const now = new Date().toISOString();
-  db.prepare('UPDATE agents SET state = ?, updated_at = ? WHERE id = ?')
-    .run(newState, now, agentId);
+  db.prepare('UPDATE agents SET state = ?, updated_at = ? WHERE id = ?').run(
+    newState,
+    now,
+    agentId,
+  );
 
   onAgentStateChange(agentId, oldState, newState);
 

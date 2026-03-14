@@ -9,8 +9,7 @@ import { getDb } from './db.js';
 const execFileAsync = promisify(execFile);
 
 const REPO_URL =
-  process.env.AGENCY_AGENTS_REPO ??
-  'https://github.com/msitarzewski/agency-agents.git';
+  process.env.AGENCY_AGENTS_REPO ?? 'https://github.com/msitarzewski/agency-agents.git';
 
 const CACHE_DIR = path.join(os.tmpdir(), 'agency-agents-cache');
 
@@ -202,9 +201,7 @@ export async function fetchAndStorePersonas(): Promise<void> {
       count: number;
     };
     if (count > 0) {
-      console.warn(
-        `[personas] Repo unavailable, using ${count} cached personas from database`,
-      );
+      console.warn(`[personas] Repo unavailable, using ${count} cached personas from database`);
     } else {
       console.error(
         `[personas] Repo unavailable and no cached personas: ${err instanceof Error ? err.message : err}`,

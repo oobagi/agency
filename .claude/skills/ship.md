@@ -27,11 +27,13 @@ Run `git status` and `git diff --stat` to see what changed. Review the changes t
 Stage all relevant files (do NOT use `git add -A` — be selective, avoid committing .env, .db files, or other artifacts).
 
 Write a commit message that:
+
 - Has a short title line describing the phase or change
 - Includes a body with bullet points of what was built
 - Ends with `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
 
 Use a HEREDOC to pass the message:
+
 ```
 git commit -m "$(cat <<'EOF'
 Title here

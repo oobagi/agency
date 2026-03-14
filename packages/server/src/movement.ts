@@ -101,8 +101,11 @@ function renderTick(): void {
 
     if (dist <= ARRIVAL_THRESHOLD) {
       // Arrived — snap to target and handle arrival
-      db.prepare('UPDATE agents SET position_x = ?, position_z = ? WHERE id = ?')
-        .run(target.targetX, target.targetZ, agentId);
+      db.prepare('UPDATE agents SET position_x = ?, position_z = ? WHERE id = ?').run(
+        target.targetX,
+        target.targetZ,
+        agentId,
+      );
 
       activeMovements.delete(agentId);
 
@@ -131,8 +134,11 @@ function renderTick(): void {
     const newX = agent.position_x + dx * ratio;
     const newZ = agent.position_z + dz * ratio;
 
-    db.prepare('UPDATE agents SET position_x = ?, position_z = ? WHERE id = ?')
-      .run(newX, newZ, agentId);
+    db.prepare('UPDATE agents SET position_x = ?, position_z = ? WHERE id = ?').run(
+      newX,
+      newZ,
+      agentId,
+    );
 
     broadcastPositionFn({
       agentId,
@@ -234,7 +240,9 @@ export async function handleSetState(
 
 // ── Proximity detection ────────────────────────────────────────────
 
-export function getAgentsInProximity(agentId: string): Array<{ id: string; name: string; distance: number }> {
+export function getAgentsInProximity(
+  agentId: string,
+): Array<{ id: string; name: string; distance: number }> {
   const db = getDb();
 
   const agent = db

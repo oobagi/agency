@@ -92,7 +92,9 @@ export async function handleFireAgent(
 
   const db = getDb();
 
-  const agent = db.prepare('SELECT * FROM agents WHERE id = ? AND fired_at IS NULL').get(agentId) as
+  const agent = db
+    .prepare('SELECT * FROM agents WHERE id = ? AND fired_at IS NULL')
+    .get(agentId) as
     | { id: string; name: string; role: string; desk_id: string | null; team_id: string | null }
     | undefined;
 
@@ -201,7 +203,9 @@ export async function handleAssignAgentToTeam(
 
   const db = getDb();
 
-  const agent = db.prepare('SELECT * FROM agents WHERE id = ? AND fired_at IS NULL').get(agentId) as
+  const agent = db
+    .prepare('SELECT * FROM agents WHERE id = ? AND fired_at IS NULL')
+    .get(agentId) as
     | { id: string; name: string; role: string; desk_id: string | null; team_id: string | null }
     | undefined;
 
@@ -223,7 +227,9 @@ export async function handleAssignAgentToTeam(
     .get(teamId) as { id: string; position_x: number; position_z: number } | undefined;
 
   if (!desk) {
-    return error(`No available desks in team "${team.name}". All ${DESKS_PER_TEAM_BLOCK} are occupied.`);
+    return error(
+      `No available desks in team "${team.name}". All ${DESKS_PER_TEAM_BLOCK} are occupied.`,
+    );
   }
 
   const now = new Date().toISOString();
@@ -271,7 +277,9 @@ function allocateDesksForTeam(teamId: string): void {
 
   // Count existing team blocks to determine row placement
   const teamCount = (
-    db.prepare('SELECT COUNT(DISTINCT team_id) as cnt FROM desks WHERE team_id IS NOT NULL').get() as {
+    db
+      .prepare('SELECT COUNT(DISTINCT team_id) as cnt FROM desks WHERE team_id IS NOT NULL')
+      .get() as {
       cnt: number;
     }
   ).cnt;

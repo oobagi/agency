@@ -51,12 +51,7 @@ export class SessionRecorder {
   private model: string;
   private simNow: () => Date;
 
-  constructor(
-    session: Session,
-    provider: string,
-    model: string,
-    simNow: () => Date,
-  ) {
+  constructor(session: Session, provider: string, model: string, simNow: () => Date) {
     this.sessionId = session.id;
     this.agentId = session.agentId;
     this.dbSessionId = session.id;
@@ -162,13 +157,11 @@ export class SessionRecorder {
 
       case 'session_error': {
         const data = event.data as SessionErrorData;
-        console.error(
-          `[session-recorder] Session ${this.sessionId} errored:`,
-          data.errors,
+        console.error(`[session-recorder] Session ${this.sessionId} errored:`, data.errors);
+        db.prepare(`UPDATE sessions SET ended_at = ?, outcome = 'errored' WHERE id = ?`).run(
+          simTime,
+          this.dbSessionId,
         );
-        db.prepare(
-          `UPDATE sessions SET ended_at = ?, outcome = 'errored' WHERE id = ?`,
-        ).run(simTime, this.dbSessionId);
         break;
       }
     }

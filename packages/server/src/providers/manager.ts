@@ -17,9 +17,9 @@ export class ProviderManager {
     const db = getDb();
 
     // Check per-agent override
-    const agent = db
-      .prepare('SELECT provider_override FROM agents WHERE id = ?')
-      .get(agentId) as { provider_override: string | null } | undefined;
+    const agent = db.prepare('SELECT provider_override FROM agents WHERE id = ?').get(agentId) as
+      | { provider_override: string | null }
+      | undefined;
 
     if (agent?.provider_override) {
       const override = providers[agent.provider_override];
@@ -39,9 +39,9 @@ export class ProviderManager {
   getModel(agentId: string): string {
     const db = getDb();
 
-    const agent = db
-      .prepare('SELECT model_override FROM agents WHERE id = ?')
-      .get(agentId) as { model_override: string | null } | undefined;
+    const agent = db.prepare('SELECT model_override FROM agents WHERE id = ?').get(agentId) as
+      | { model_override: string | null }
+      | undefined;
 
     if (agent?.model_override) return agent.model_override;
     return this.getDefaultModel();
@@ -49,9 +49,9 @@ export class ProviderManager {
 
   getDefaultProvider(): AgenticProvider {
     const db = getDb();
-    const row = db
-      .prepare("SELECT value FROM settings WHERE key = 'default_provider'")
-      .get() as { value: string } | undefined;
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'default_provider'").get() as
+      | { value: string }
+      | undefined;
 
     const name = row ? JSON.parse(row.value) : 'claude_agent_sdk';
     return providers[name] ?? providers.claude_agent_sdk;
@@ -59,9 +59,9 @@ export class ProviderManager {
 
   getDefaultModel(): string {
     const db = getDb();
-    const row = db
-      .prepare("SELECT value FROM settings WHERE key = 'default_model'")
-      .get() as { value: string } | undefined;
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'default_model'").get() as
+      | { value: string }
+      | undefined;
 
     return row ? JSON.parse(row.value) : 'claude-sonnet-4-20250514';
   }

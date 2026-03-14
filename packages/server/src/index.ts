@@ -4,13 +4,7 @@ import { initDb, closeDb } from './db.js';
 import { SimClock } from './sim-clock.js';
 import { handleMcpRequest, closeMcpSessions, setSimClock } from './mcp/server.js';
 import { fetchAndStorePersonas, getPersonas, refreshPersonas } from './personas.js';
-import {
-  getAgents,
-  getAgent,
-  getTeams,
-  getTeam,
-  getDesks,
-} from './handlers/agent-management.js';
+import { getAgents, getAgent, getTeams, getTeam, getDesks } from './handlers/agent-management.js';
 import {
   setSessionBroadcast,
   getSessionsForAgent,
@@ -51,7 +45,10 @@ setOfficeManagerSimClock(() => clock.now());
 setTeamManagerSimClock(() => clock.now());
 setContextSimClock(() => clock.now());
 setIdleCheckerSimClock(() => clock.now());
-setMovementSimClock(() => clock.now(), () => clock.getSpeed());
+setMovementSimClock(
+  () => clock.now(),
+  () => clock.getSpeed(),
+);
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -317,9 +314,7 @@ console.log(
 );
 
 // Fetch personas in the background so server starts immediately
-fetchAndStorePersonas().catch((err) =>
-  console.error('[personas] Startup fetch failed:', err),
-);
+fetchAndStorePersonas().catch((err) => console.error('[personas] Startup fetch failed:', err));
 
 server.listen(PORT, () => {
   console.log(`Agency server listening on http://localhost:${PORT}`);

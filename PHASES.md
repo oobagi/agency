@@ -1,190 +1,26 @@
 Agency Implementation Phases
 
-This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. The rationale: getting teams of agents to collaborate correctly, respect hierarchy, communicate physically, and execute real agentic sessions is the hardest and most uncertain part of this project. The 3D office is a visualization layer on top of that foundation. It is far better to have working agent orchestration with placeholder UI than a beautiful office with no real agent behavior.
-
-Every phase includes: a one-sentence goal, context for the implementing agent, exactly what to build, explicit out-of-scope items, testable acceptance criteria, and a handoff note. Read DESIGN_DOC.md in full before starting any phase.
-
-Phase 1.0 — Project Scaffold and Monorepo Structure
-
-Goal: establish the monorepo structure, tooling, and dev workflow so all subsequent phases have a consistent foundation.
-
-Context: this is the very first implementation phase. There are no prior code files. You are starting from DESIGN_DOC.md, PHASES.md, NOTES.md, and README.md only.
-
-What to build: initialize a pnpm workspace monorepo with two packages, server (Node.js, TypeScript) and client (React, Vite, TypeScript). Configure TypeScript with strict mode in both packages. Set up ESLint and Prettier with shared configs. Add a root package.json with dev, build, and start scripts that run both packages. The server package should use tsx for development. The client package should use Vite's dev server with proxy configuration pointing API and WebSocket requests to the server's port. Add a .gitignore covering node_modules, dist, .env, and SQLite database files. Do not install any application-specific dependencies yet beyond the build tooling.
-
-Out of scope: any application code, database setup, 3D rendering dependencies, LLM provider packages.
-
-Acceptance criteria: running pnpm install from root succeeds. Running pnpm dev starts both server and client in parallel. The server starts an HTTP listener on a configurable port. The client starts Vite dev server and proxies requests to the server. TypeScript compilation succeeds with zero errors in both packages.
-
-Handoff: the next phase will add the database layer. The server package should already have a src directory with an index.ts entry point that starts the HTTP server.
-
-Phase 1.1 — Database Schema and Migration Runner
-
-Goal: implement the full SQLite database schema and a migration runner that applies versioned schema changes on startup.
-
-Context: depends on Phase 1.0. You will be working in the server package. Install better-sqlite3 and its TypeScript types.
-
-What to build: create a migrations directory inside the server package. Write the initial migration file that creates all tables defined in DESIGN_DOC.md: agents, personas, teams, projects, worktrees, tasks, pull_requests, agent_memory, chat_logs, conversations, conversation_participants, conversation_messages, sessions, session_tool_calls, scheduled_jobs, job_queue, desks, meeting_rooms, office_layout, settings, and migrations. Implement a migration runner module that on server startup reads the migrations directory, checks which migrations have been applied by querying the migrations table, and applies any unapplied migrations in order. The runner should use transactions so a failed migration rolls back cleanly. Export a getDb() function that returns the initialized database connection as a singleton. Seed the settings table with default values: default_provider set to claude_agent_sdk, default_model set to the latest Claude Sonnet, sim_speed set to 1, sim_paused set to false.
-
-Out of scope: sqlite-vss setup (comes later with memory compression), any application logic beyond schema creation and migration running.
-
-Acceptance criteria: server starts and creates the SQLite database file. All tables exist with correct columns and types. Running the server a second time does not re-apply migrations. The migrations table tracks what has been applied. getDb() returns a usable database connection from any server module.
-
-Handoff: every subsequent server-side phase will import getDb() to access the database. The schema is now the source of truth.
-
-Phase 2.0 — Sim Clock and Tick Loop
-
-Goal: implement the simulation clock that is the sole time source for all game mechanics.
-
-Context: depends on Phase 1.1. The database is available. The settings table has sim_speed and sim_paused values.
-
-What to build: create a SimClock class in the server package. It maintains the current sim datetime, which persists across restarts by storing in the settings table. A single Node.js setInterval drives the tick loop. Each tick advances the sim clock by a number of sim seconds determined by the speed multiplier. The SimClock exposes methods: now() returns current sim datetime, pause() stops the tick interval and sets sim_paused in settings, resume() restarts the interval, setSpeed(multiplier) updates the speed multiplier, onTick(callback) registers a listener called on every tick. The tick loop should emit tick events that other subsystems subscribe to. On server startup, if sim_paused was true when the server last shut down, the clock starts paused. Build a simple REST endpoint GET /api/sim/status that returns current sim time, speed, and paused state. Build POST /api/sim/pause, POST /api/sim/resume, and POST /api/sim/speed endpoints. Set up WebSocket infrastructure using the ws library. On each tick, broadcast the current sim time to all connected WebSocket clients.
-
-Out of scope: any agent behavior, the scheduled jobs runner (just the clock), 3D rendering.
-
-Acceptance criteria: server starts, sim clock begins ticking. GET /api/sim/status returns correct sim time. POST /api/sim/pause stops the clock. POST /api/sim/resume restarts it. POST /api/sim/speed with multiplier 10 makes time advance 10x faster. WebSocket clients receive sim time broadcasts on every tick. Restarting the server resumes from the persisted sim time, not from zero.
-
-Handoff: every time-dependent system in subsequent phases reads from SimClock.now() and subscribes to tick events. No other timer mechanism should be introduced.
-
-Phase 2.1 — MCP Server with Stub Tool Handlers
-
-Goal: stand up the MCP server that agents will connect to, with all tools defined but returning stub responses.
-
-Context: depends on Phase 2.0. Read the full MCP tool list in DESIGN_DOC.md. You are building the skeleton that will be fleshed out in later phases.
-
-What to build: implement the MCP server using the Model Context Protocol SDK for TypeScript. Register every tool defined in DESIGN_DOC.md: walk_to_desk, walk_to_agent, walk_to_meeting_room, walk_to_exit, speak, send_to_manager, begin_task, commit_work, open_pull_request, hire_agent, fire_agent, create_team, assign_agent_to_team, create_project, delete_project, assign_team_to_project, create_worktree, schedule_event, review_pull_request, merge_pull_request, trigger_compression, checkpoint_agent, set_state, report_blocker. Each tool should have a complete JSON schema for its parameters and a stub handler that logs the call and returns a placeholder success response. Create a tool registry module that maps tool names to handlers, separating manager-only tools from general tools. Add a validation layer that checks whether the calling agent has permission to use manager-only tools. The MCP server should be startable alongside the HTTP server and reachable by agentic sessions.
-
-Out of scope: real tool implementations (those come phase by phase), agent sessions, provider integration.
-
-Acceptance criteria: the MCP server starts without errors. Every tool in the DESIGN_DOC.md list is registered. Calling any tool with valid parameters returns a stub response. Calling a manager-only tool with a non-manager agent ID returns a permission error. Tool schemas validate input parameters correctly.
-
-Handoff: subsequent phases will replace stub handlers with real implementations one by one. The tool registry and permission layer are shared infrastructure.
-
-Phase 2.2 — Persona System
-
-Goal: fetch and curate agent personas from the agency-agents GitHub repo and store them locally.
-
-Context: depends on Phase 1.1. This phase is independent of the MCP server and sim clock so it can be worked on in parallel with 2.0 and 2.1 if desired.
-
-What to build: create a persona fetcher module that clones or pulls the agency-agents GitHub repository to a local cache directory. Parse persona files from the repo structure. Each persona should have: name, github_username, bio, system_prompt, and specialties. Store parsed personas in the personas table. Build a curation layer that ensures diversity of specialties across frontend, backend, devops, testing, design, and architecture. If the repo is unavailable, fall back to any previously cached personas in the database. Add a REST endpoint GET /api/personas that returns all available personas. Add a refresh mechanism that re-fetches on demand via POST /api/personas/refresh.
-
-Out of scope: assigning personas to agents (that is done during hiring), any agent behavior.
-
-Acceptance criteria: on first server start, personas are fetched from the GitHub repo and stored in the database. GET /api/personas returns at least one persona. The personas table has populated name, bio, system_prompt, and specialties fields. If the GitHub repo is unreachable, previously cached personas are still returned.
-
-Handoff: the hiring flow in Phase 3.1 will pull from the personas table to assign a persona to newly hired agents.
-
-Phase 3.0 — Provider Abstraction Layer
-
-Goal: build the unified provider interface that the World Server uses to spawn agentic sessions regardless of which provider is active.
-
-Context: depends on Phase 2.1 for the MCP server. Read the provider section of DESIGN_DOC.md carefully. Remember the hard constraint: the Claude Agent SDK provider must use the Agent SDK query() function, never the raw Anthropic SDK.
-
-What to build: define a TypeScript interface AgenticProvider with methods: spawnSession(config: SessionConfig) returning a Session object, interruptSession(sessionId: string) returning void. The SessionConfig type includes: agentId, systemPrompt, context (assembled string), mcpTools (list of tool names this session can access), provider (string), model (string). The Session type includes: id, agentId, an event emitter or async iterator that yields session events (tool_call_start, tool_call_complete, session_complete, session_error). Implement ClaudeAgentSdkProvider that wraps the Agent SDK query() function. It connects the session to the MCP server's tool list, streams tool calls as events, and handles session completion. Implement CodexProvider that wraps the OpenAI Codex API with the same interface. Build a ProviderManager that reads the default provider and model from settings, checks for per-agent overrides, and returns the correct provider instance. For lightweight calls (summaries, briefings), expose a utility function that calls query() with model haiku, maxTurns 1, allowedTools empty, persistSession false.
-
-Out of scope: the full session recording pipeline (Phase 3.2), context assembly (Phase 4.2), memory compression (Phase 5.0).
-
-Acceptance criteria: ProviderManager.getProvider(agentId) returns the correct provider based on defaults and per-agent overrides. A session can be spawned via the ClaudeAgentSdkProvider and receives tool calls from the MCP server. InterruptSession gracefully terminates an active session. The CodexProvider implements the same interface. Switching the default provider in settings changes which provider is used for agents without overrides.
-
-Handoff: all subsequent phases that spawn agent sessions use ProviderManager. No phase should directly import a specific provider.
-
-Phase 3.1 — Agent Management and Hiring
-
-Goal: implement the hire_agent and fire_agent MCP tool handlers and the agent lifecycle.
-
-Context: depends on Phase 2.1 for MCP stubs and Phase 2.2 for the persona system. Hard constraint 6: freshly hired agents know nothing. They have their persona and nothing else.
-
-What to build: replace the hire_agent stub with a real handler. When the Office Manager calls hire_agent with a persona_id, the handler creates a new agent record with state Idle, assigns the persona's system_prompt, assigns no team and no desk, and returns the new agent's ID. Replace the fire_agent stub. When the Office Manager calls fire_agent with an agent_id, the handler sets fired_at, removes team and desk assignments, and transitions the agent to Departing. Implement the create_team and assign_agent_to_team handlers. create_team takes a name and color (hex) and creates a team record. assign_agent_to_team takes an agent_id and team_id, updates the agent's team_id, and assigns an available desk from the team's desk pool. Build a desk assignment system: when a team is created or assigned to a project, pre-allocate a block of desks in the office layout for that team. When an agent is assigned to a team, assign them the next available desk.
-
-Out of scope: agent movement (Phase 4.0), agent sessions, daily schedules (Phase 3.3).
-
-Acceptance criteria: calling hire_agent via MCP with a valid persona_id creates an agent record with the correct persona and Idle state. The new agent has no team, no desk, no task, and no memory. Calling fire_agent removes the agent from their team and desk. create_team creates a team with a color. assign_agent_to_team assigns the agent and allocates a desk.
-
-Handoff: agents now exist in the database but do not move or think. Phase 3.2 will give them sessions. Phase 3.3 will give them daily schedules.
-
-Phase 3.2 — Session Recording Pipeline
-
-Goal: record every agentic session and its tool calls in the database for full transparency and the Sessions tab UI.
-
-Context: depends on Phase 3.0 for the provider abstraction. Every session spawned by the World Server must be recorded per DESIGN_DOC.md.
-
-What to build: create a SessionRecorder class that wraps around a Session from the provider abstraction. When a session starts, insert a record into the sessions table with agent_id, sim_day, provider, model, and started_at. Subscribe to the session's event stream. On tool_call_start, insert a record into session_tool_calls with status pending and broadcast the event via WebSocket to any client watching this agent. On tool_call_complete, update the tool call record with the result and status completed, broadcast via WebSocket. On session_complete, update the session record with ended_at, outcome, and token_estimate. On session_error, set outcome to errored. Add REST endpoints: GET /api/agents/:id/sessions returns all sessions for an agent grouped by sim day, GET /api/sessions/:id returns a single session with all its tool calls. Add WebSocket subscription: clients can subscribe to live session events for a specific agent.
-
-Out of scope: the UI rendering of sessions (that comes in UI phases), context assembly.
-
-Acceptance criteria: spawning a session via ProviderManager creates a session record in the database. Every tool call made during the session is recorded with arguments and results. The session outcome is correctly set to completed, interrupted, or errored. WebSocket broadcasts are emitted for tool call starts and completions. REST endpoints return correct data.
-
-Handoff: the UI phases will consume these endpoints and WebSocket events to render the Sessions tab.
-
-Phase 3.3 — Daily Schedule Automation
-
-Goal: implement the automatic daily schedule that all agents follow and the scheduled jobs infrastructure.
-
-Context: depends on Phase 2.0 for the sim clock and Phase 3.1 for agent records. Per DESIGN_DOC.md: all agents follow arrive at 08:00, lunch at 12:00, return at 13:00, depart at 17:00.
-
-What to build: implement the scheduled jobs runner. On each sim clock tick, the runner checks the scheduled_jobs table for any jobs whose sim_time has passed. For jobs that fire, it either executes them immediately or queues them in job_queue if the target agent is busy. Implement the missed job handling on boot: check for jobs whose sim_time passed while the server was down, apply fire_immediately or skip_to_next per the missed_policy field. When an agent is hired, automatically create four daily recurring scheduled jobs: arrive at 08:00, lunch_break at 12:00, return_from_lunch at 13:00, depart at 17:00. The arrive job sets the agent to Arriving state. The lunch_break job transitions to Break. The return_from_lunch job transitions back to Walking toward desk. The depart job transitions to Departing. Implement the schedule_event MCP tool handler for managers to create custom scheduled jobs.
-
-Out of scope: the Office Manager's autonomous loops (Phase 4.0), Team Manager triggers (Phase 4.1), actual physical movement (Phase 4.3).
-
-Acceptance criteria: when an agent is hired, four daily scheduled jobs appear in the scheduled_jobs table. As sim time advances past 08:00, the arrive job fires and sets the agent to Arriving. At 12:00, the lunch job fires. At 13:00, return fires. At 17:00, depart fires. Missed jobs on restart are handled per their policy. The schedule_event MCP tool creates custom jobs.
-
-Handoff: Phase 4.0 will add the Office Manager's three daily loops as scheduled jobs. Phase 4.1 adds Team Manager triggers. The scheduled jobs runner is now live infrastructure.
-
-Phase 4.0 — Office Manager Autonomous Loop
-
-Goal: implement the Office Manager's three daily scheduled sessions that drive the entire simulation forward.
-
-Context: depends on Phase 3.0 for provider abstraction, Phase 3.2 for session recording, and Phase 3.3 for scheduled jobs. This is the most critical phase for making the simulation come alive. The previous implementation failed because this did not exist. Read the autonomous agent loops section of DESIGN_DOC.md carefully.
-
-What to build: on server initialization, if no Office Manager agent exists, create one with a built-in Office Manager persona (not from the agency-agents repo — the Office Manager is a system agent). Create three scheduled jobs for the Office Manager: morning_planning at 08:00, midday_check at 13:00, eod_review at 17:00. When the morning_planning job fires, the World Server spawns an agentic session for the Office Manager. The session context includes: the Office Manager persona, a report of all projects and their status, all teams and their members, all agents and their states, all unresolved blockers, any queued user messages, and the full MCP tool list including all manager-only tools. The Office Manager session runs autonomously, making tool calls to hire agents, create projects, create teams, assign work, and address blockers. The midday_check session has a lighter context focused on progress and stalled work. The eod_review session summarizes the day and queues priorities. Each session is fully recorded via Phase 3.2's SessionRecorder.
-
-Out of scope: Team Manager loops (Phase 4.1), regular agent idle check-in (Phase 4.2), physical movement (Phase 4.3).
-
-Acceptance criteria: starting the server with no existing agents creates an Office Manager. At 08:00 sim time, the Office Manager's morning session fires automatically. The session makes real MCP tool calls. If given a user goal, the Office Manager creates projects, hires agents, creates teams, and delegates work without user intervention. Session tool calls are recorded in the database.
-
-Handoff: the Office Manager now drives the simulation. Phase 4.1 adds Team Managers who respond to the Office Manager's delegations.
-
-Phase 4.1 — Team Manager Autonomous Loop
-
-Goal: implement Team Manager triggered sessions that assign work, review PRs, and escalate blockers.
-
-Context: depends on Phase 4.0. Team Managers are created by the Office Manager via hire_agent and assign_agent_to_team. Team Manager sessions fire on three triggers per DESIGN_DOC.md: arrival at desk, team member task completion, team member blocker report.
-
-What to build: implement a trigger system in the World Server. Register three triggers for each Team Manager: on_desk_arrival fires when the Team Manager transitions from Walking to Idle at their desk in the morning. on_task_complete fires when any agent on the manager's team completes a task (detected when a task status changes to completed). on_blocker_report fires when any team agent calls report_blocker. When a trigger fires, the World Server spawns a session for the Team Manager. The session context includes: the Team Manager's persona, their team roster with agent states and current tasks, pending PRs for the team, unresolved blockers, and the manager MCP tools scoped to their team. During the session, the Team Manager walks to idle agents to assign tasks, reviews PRs, schedules meetings, and escalates to the Office Manager by physically walking to the Office Manager's desk if needed. The physical walk requirement means the session must use walk_to_agent before speak.
-
-Out of scope: regular agent idle check-in (Phase 4.2), meeting system (Phase 6.0).
-
-Acceptance criteria: when a Team Manager arrives at their desk, a session fires automatically. When a team member completes a task, the Team Manager session fires. When a team member reports a blocker, the Team Manager session fires. The Team Manager's session uses walk_to_agent before communicating with any agent. Session tool calls are recorded.
-
-Handoff: Phase 4.2 adds the idle agent check-in that ensures regular agents are not forgotten.
-
-Phase 4.2 — Regular Agent Idle Check-in and Context Assembly
-
-Goal: implement the idle agent check-in behavior and the context assembly system that builds session prompts.
-
-Context: depends on Phase 4.1. Per DESIGN_DOC.md, regular agents idle for 30 sim minutes must walk to their Team Manager. Context assembly is needed for all session types going forward.
-
-What to build: implement the idle check-in timer. The World Server tracks how long each regular agent has been in Idle state with an empty task queue, using sim time. At 30 sim minutes, the World Server automatically triggers the agent to call walk_to_agent targeting their Team Manager. Upon arrival, this triggers the Team Manager's on_desk_arrival or a new on_agent_checkin trigger. Implement the context assembly module. This module builds the session context string for any agent session. It assembles: the agent's persona system prompt, the current task description if any, the last 10 chat log entries from chat_logs for this agent, the top 3 memory chunks from agent_memory via vector similarity (or plain text match as a fallback until sqlite-vss is set up in Phase 5.0), the current sim time from SimClock, and the list of available MCP tools filtered by role. The context module enforces a token budget and truncates if necessary. Expose this as a buildSessionContext(agentId, taskContext?) function used by all session-spawning code.
-
-Out of scope: memory compression (Phase 5.0), the actual vector search (stubbed until Phase 5.0).
-
-Acceptance criteria: an agent in Idle state with no tasks for 30 sim minutes automatically walks to their Team Manager. buildSessionContext returns a well-formed context string within token budget. The context includes persona, recent chat, current task, and sim time. Manager sessions include team status information. Non-manager sessions do not include cross-team data.
-
-Handoff: all session-spawning code should now use buildSessionContext. Phase 5.0 will replace the memory stub with real vector search.
-
-Phase 4.3 — Physical Movement and State Machine
-
-Goal: implement the agent movement system, pathfinding, position tracking, and the state machine with enforced transitions.
-
-Context: depends on Phase 2.0 for sim clock ticks and Phase 3.1 for agent records. This phase makes physical presence real.
-
-What to build: implement the state machine as an explicit transition map data structure (not scattered conditionals). The map defines which states can transition to which other states per DESIGN_DOC.md. The set_state MCP tool handler indexes into this map and rejects invalid transitions with a clear error. Add position enforcement: set_state to Programming or Researching checks that the agent's position matches their assigned desk coordinates; set_state to Meeting checks that the agent is in the correct meeting room. Implement the movement system. walk_to_desk, walk_to_agent, walk_to_meeting_room, and walk_to_exit calculate a path from the agent's current position to the target position. On each sim clock tick, agents in Walking state advance along their path. Movement speed is a configurable value in sim-time units per tick. When the agent arrives, they transition from Walking to Idle (or to Meeting if at a meeting room with a pending meeting). Implement proximity detection: a function that given an agent's position returns all other agents within a configurable radius. The speak MCP tool uses this to determine message recipients.
-
-Out of scope: 3D rendering of movement (UI phases), pathfinding around obstacles (use simple direct movement for now, refine in UI phases if needed).
-
-Acceptance criteria: the state machine rejects invalid transitions with a descriptive error. An agent cannot enter Programming without being at their desk. walk_to_agent moves an agent's position toward the target agent over multiple ticks. Proximity detection correctly identifies nearby agents. speak only delivers messages to agents within proximity radius. Movement speed is consistent with sim time regardless of speed multiplier.
-
-Handoff: physical communication is now enforced. All subsequent phases that involve agent-to-agent interaction must use walk then speak.
+This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
+
+Completed Phases (Summary)
+
+Full specs for completed phases are in the git history. See @NOTES_COMPLETED.md for implementation details.
+
+- **Phase 1.0** — Project scaffold: pnpm monorepo, server + client packages, TypeScript strict, ESLint, Prettier.
+- **Phase 1.1** — Database: SQLite via better-sqlite3, WAL mode, 21 tables, migration runner, `getDb()` singleton.
+- **Phase 2.0** — Sim clock: `SimClock` class, tick loop, REST endpoints, WebSocket broadcasts, persistent sim time.
+- **Phase 2.1** — MCP server: 24 tools with Zod v4 schemas, StreamableHTTP transport, permission validation, stub handlers.
+- **Phase 2.2** — Personas: 49 personas from agency-agents repo, specialty classification, REST endpoints.
+- **Phase 3.0** — Provider abstraction: `AgenticProvider` interface, `ClaudeAgentSdkProvider` (Agent SDK `query()`), `CodexProvider` (placeholder), `ProviderManager`, `lightweightQuery()`.
+- **Phase 3.1** — Agent management: `hire_agent`, `fire_agent`, `create_team`, `assign_agent_to_team` real handlers, desk allocation, REST endpoints.
+- **Phase 3.2** — Session recording: `SessionRecorder` class, DB persistence, WebSocket broadcasts, interrupt support.
+- **Phase 3.3** — Daily schedule: scheduler with `processTick()`, 4 daily jobs per agent, missed job handling, `schedule_event` tool.
+- **Phase 4.0** — Office Manager: singleton OM agent, 3 autonomous sessions (08:05, 13:05, 17:00), rich context builder, user message system.
+- **Phase 4.1** — Team Manager: 3 triggers (desk arrival, task complete, blocker report), team-scoped context, duplicate session guard.
+- **Phase 4.2** — Context assembly: `buildSessionContext()`, idle checker (30 sim-min threshold), role-filtered tools, ~100k token budget.
+- **Phase 4.3** — Movement & state machine: `TRANSITION_MAP`, position enforcement, 60Hz decoupled render loop, proximity detection (2.5 units), walk handlers, `set_state`.
+
+Upcoming Phases
 
 Phase 4.4 — Physical Communication Enforcement
 

@@ -112,7 +112,13 @@ function ensureOMScheduledJobs(omId: string): void {
       db.prepare(
         `INSERT INTO scheduled_jobs (id, agent_id, job_type, sim_time, recurrence, missed_policy, payload, created_at)
          VALUES (?, ?, ?, ?, 'daily', 'fire_immediately', '{}', ?)`,
-      ).run(crypto.randomUUID(), omId, item.jobType, jobTime.toISOString(), new Date().toISOString());
+      ).run(
+        crypto.randomUUID(),
+        omId,
+        item.jobType,
+        jobTime.toISOString(),
+        new Date().toISOString(),
+      );
 
       console.log(`[office-manager] Scheduled ${item.jobType} at ${jobTime.toISOString()}`);
     }
@@ -170,12 +176,21 @@ function buildOMContext(omId: string): string {
 
   // Projects
   const projects = db.prepare('SELECT * FROM projects').all() as Array<{
-    id: string; name: string; description: string; repo_path: string;
+    id: string;
+    name: string;
+    description: string;
+    repo_path: string;
   }>;
   if (projects.length > 0) {
-    sections.push('## Projects\n' + projects.map((p) =>
-      `- **${p.name}** (${p.id}): ${p.description || 'No description'} — repo: ${p.repo_path}`,
-    ).join('\n'));
+    sections.push(
+      '## Projects\n' +
+        projects
+          .map(
+            (p) =>
+              `- **${p.name}** (${p.id}): ${p.description || 'No description'} — repo: ${p.repo_path}`,
+          )
+          .join('\n'),
+    );
   } else {
     sections.push('## Projects\nNo projects exist yet.');
   }
@@ -189,14 +204,24 @@ function buildOMContext(omId: string): string {
        LEFT JOIN agents a ON t.manager_id = a.id`,
     )
     .all() as Array<{
-      id: string; name: string; color: string; project_id: string | null;
-      manager_name: string | null; agent_count: number;
-    }>;
+    id: string;
+    name: string;
+    color: string;
+    project_id: string | null;
+    manager_name: string | null;
+    agent_count: number;
+  }>;
   if (teams.length > 0) {
-    sections.push('## Teams\n' + teams.map((t) =>
-      `- **${t.name}** (${t.id}): color=${t.color}, manager=${t.manager_name ?? 'none'}, ` +
-      `agents=${t.agent_count}, project=${t.project_id ?? 'none'}`,
-    ).join('\n'));
+    sections.push(
+      '## Teams\n' +
+        teams
+          .map(
+            (t) =>
+              `- **${t.name}** (${t.id}): color=${t.color}, manager=${t.manager_name ?? 'none'}, ` +
+              `agents=${t.agent_count}, project=${t.project_id ?? 'none'}`,
+          )
+          .join('\n'),
+    );
   } else {
     sections.push('## Teams\nNo teams exist yet.');
   }
@@ -209,14 +234,24 @@ function buildOMContext(omId: string): string {
        WHERE a.id != ? AND a.fired_at IS NULL`,
     )
     .all(omId) as Array<{
-      id: string; name: string; role: string; state: string;
-      team_name: string | null; desk_id: string | null;
-    }>;
+    id: string;
+    name: string;
+    role: string;
+    state: string;
+    team_name: string | null;
+    desk_id: string | null;
+  }>;
   if (agents.length > 0) {
-    sections.push('## Agents\n' + agents.map((a) =>
-      `- **${a.name}** (${a.id}): role=${a.role}, state=${a.state}, ` +
-      `team=${a.team_name ?? 'unassigned'}, desk=${a.desk_id ? 'yes' : 'no'}`,
-    ).join('\n'));
+    sections.push(
+      '## Agents\n' +
+        agents
+          .map(
+            (a) =>
+              `- **${a.name}** (${a.id}): role=${a.role}, state=${a.state}, ` +
+              `team=${a.team_name ?? 'unassigned'}, desk=${a.desk_id ? 'yes' : 'no'}`,
+          )
+          .join('\n'),
+    );
   } else {
     sections.push('## Agents\nNo other agents exist. Consider hiring some.');
   }
@@ -229,9 +264,10 @@ function buildOMContext(omId: string): string {
     )
     .all() as Array<{ id: string; name: string; team_id: string | null }>;
   if (blockedAgents.length > 0) {
-    sections.push('## Unresolved Blockers\n' + blockedAgents.map((a) =>
-      `- **${a.name}** (${a.id}) is BLOCKED`,
-    ).join('\n'));
+    sections.push(
+      '## Unresolved Blockers\n' +
+        blockedAgents.map((a) => `- **${a.name}** (${a.id}) is BLOCKED`).join('\n'),
+    );
   }
 
   // Pending tasks
@@ -243,13 +279,22 @@ function buildOMContext(omId: string): string {
        ORDER BY t.priority DESC LIMIT 20`,
     )
     .all() as Array<{
-      id: string; title: string; status: string; team_name: string | null;
-      agent_id: string | null;
-    }>;
+    id: string;
+    title: string;
+    status: string;
+    team_name: string | null;
+    agent_id: string | null;
+  }>;
   if (pendingTasks.length > 0) {
-    sections.push('## Pending/Blocked Tasks\n' + pendingTasks.map((t) =>
-      `- [${t.status}] "${t.title}" (${t.id}) — team=${t.team_name ?? 'none'}, agent=${t.agent_id ?? 'unassigned'}`,
-    ).join('\n'));
+    sections.push(
+      '## Pending/Blocked Tasks\n' +
+        pendingTasks
+          .map(
+            (t) =>
+              `- [${t.status}] "${t.title}" (${t.id}) — team=${t.team_name ?? 'none'}, agent=${t.agent_id ?? 'unassigned'}`,
+          )
+          .join('\n'),
+    );
   }
 
   // Open PRs
@@ -261,12 +306,20 @@ function buildOMContext(omId: string): string {
        ORDER BY pr.created_at DESC LIMIT 10`,
     )
     .all() as Array<{
-      id: string; title: string; status: string; author_name: string | null;
-    }>;
+    id: string;
+    title: string;
+    status: string;
+    author_name: string | null;
+  }>;
   if (openPRs.length > 0) {
-    sections.push('## Open Pull Requests\n' + openPRs.map((pr) =>
-      `- [${pr.status}] "${pr.title}" by ${pr.author_name ?? 'unknown'} (${pr.id})`,
-    ).join('\n'));
+    sections.push(
+      '## Open Pull Requests\n' +
+        openPRs
+          .map(
+            (pr) => `- [${pr.status}] "${pr.title}" by ${pr.author_name ?? 'unknown'} (${pr.id})`,
+          )
+          .join('\n'),
+    );
   }
 
   // User messages (from chat_logs where speaker_type = 'user' and agent_id = OM)
@@ -278,8 +331,10 @@ function buildOMContext(omId: string): string {
     )
     .all(omId) as Array<{ message: string; sim_time: string }>;
   if (userMessages.length > 0) {
-    sections.push('## User Messages\nThe user has sent you the following messages:\n' +
-      userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n'));
+    sections.push(
+      '## User Messages\nThe user has sent you the following messages:\n' +
+        userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n'),
+    );
   }
 
   // Available personas (for hiring) — include IDs so the OM can actually hire
@@ -287,11 +342,15 @@ function buildOMContext(omId: string): string {
     .prepare('SELECT id, name, specialties FROM personas ORDER BY name LIMIT 30')
     .all() as Array<{ id: string; name: string; specialties: string }>;
   if (personas.length > 0) {
-    sections.push('## Available Personas for Hiring\nUse hire_agent with the persona_id value:\n' +
-      personas.map((p) => {
-        const specs = JSON.parse(p.specialties) as string[];
-        return `- **${p.name}** (persona_id: \`${p.id}\`) — specialties: ${specs.join(', ') || 'general'}`;
-      }).join('\n'));
+    sections.push(
+      '## Available Personas for Hiring\nUse hire_agent with the persona_id value:\n' +
+        personas
+          .map((p) => {
+            const specs = JSON.parse(p.specialties) as string[];
+            return `- **${p.name}** (persona_id: \`${p.id}\`) — specialties: ${specs.join(', ') || 'general'}`;
+          })
+          .join('\n'),
+    );
   }
 
   // Available tool names
