@@ -6,6 +6,7 @@ import { useChatBubbles } from './hooks/useChatBubbles';
 import { OfficeScene } from './components/OfficeScene';
 import { HUD } from './components/HUD';
 import { SidePanel } from './components/SidePanel';
+import { RoomPanel } from './components/RoomPanel';
 import { ConversationsPanel } from './components/ConversationsPanel';
 import { DiffViewerPanel } from './components/DiffViewerPanel';
 import { SchedulePanel } from './components/SchedulePanel';
@@ -41,14 +42,22 @@ export function App() {
   const agents = useAgents(subscribe, connected);
   const chatBubbles = useChatBubbles(subscribe);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [leftPanel, setLeftPanel] = useState<LeftPanel>(null);
 
   const handleAgentClick = useCallback((agentId: string) => {
     setSelectedAgentId(agentId);
+    setSelectedRoomId(null);
+  }, []);
+
+  const handleRoomClick = useCallback((roomId: string) => {
+    setSelectedRoomId((prev) => (prev === roomId ? null : roomId));
+    setSelectedAgentId(null);
   }, []);
 
   const handleClose = useCallback(() => {
     setSelectedAgentId(null);
+    setSelectedRoomId(null);
   }, []);
 
   const togglePanel = useCallback((panel: LeftPanel) => {
@@ -89,7 +98,9 @@ export function App() {
           agents={agents}
           chatBubbles={chatBubbles}
           selectedAgentId={selectedAgentId}
+          selectedRoomId={selectedRoomId}
           onAgentClick={handleAgentClick}
+          onRoomClick={handleRoomClick}
           onBackgroundClick={handleClose}
         />
       </ErrorBoundary>
@@ -115,6 +126,15 @@ export function App() {
       {selectedAgentId && (
         <ErrorBoundary fallbackLabel="Agent Panel">
           <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
+        </ErrorBoundary>
+      )}
+      {selectedRoomId && layout && (
+        <ErrorBoundary fallbackLabel="Room Panel">
+          <RoomPanel
+            room={layout.meetingRooms.find((r) => r.id === selectedRoomId)!}
+            agents={agents}
+            onClose={handleClose}
+          />
         </ErrorBoundary>
       )}
       {selectedAgentId && isBlocked && selectedAgent && (

@@ -14,7 +14,9 @@ interface OfficeSceneProps {
   agents: Map<string, AgentRenderState>;
   chatBubbles: ChatBubble[];
   selectedAgentId: string | null;
+  selectedRoomId: string | null;
   onAgentClick: (agentId: string) => void;
+  onRoomClick: (roomId: string) => void;
   onBackgroundClick: () => void;
 }
 
@@ -23,7 +25,9 @@ export function OfficeScene({
   agents,
   chatBubbles,
   selectedAgentId,
+  selectedRoomId,
   onAgentClick,
+  onRoomClick,
   onBackgroundClick,
 }: OfficeSceneProps) {
   return (
@@ -48,7 +52,7 @@ export function OfficeScene({
       {/* Office geometry */}
       <OfficeFloor layout={layout} />
       <OfficeWalls layout={layout} />
-      <OfficeFurniture layout={layout} />
+      <OfficeFurniture layout={layout} selectedRoomId={selectedRoomId} onRoomClick={onRoomClick} />
 
       {/* Agents */}
       <AgentLayer agents={agents} selectedAgentId={selectedAgentId} onAgentClick={onAgentClick} />
