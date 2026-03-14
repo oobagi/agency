@@ -344,9 +344,10 @@ const server = http.createServer(async (req, res) => {
     const search = parsedUrl.searchParams.get('search') ?? undefined;
     const type = parsedUrl.searchParams.get('type') ?? undefined;
     const participant = parsedUrl.searchParams.get('participant') ?? undefined;
+    const location = parsedUrl.searchParams.get('location') ?? undefined;
     const limit = parseInt(parsedUrl.searchParams.get('limit') ?? '50', 10);
     const offset = parseInt(parsedUrl.searchParams.get('offset') ?? '0', 10);
-    return json(res, getConversations({ search, type, participant, limit, offset }));
+    return json(res, getConversations({ search, type, participant, location, limit, offset }));
   }
 
   if (url?.match(/^\/api\/conversations\/[^/]+$/) && method === 'GET') {

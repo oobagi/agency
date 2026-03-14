@@ -342,6 +342,7 @@ export interface ConversationFilters {
   search?: string;
   type?: string;
   participant?: string;
+  location?: string;
 }
 
 export function getConversations(filters: ConversationFilters = {}): {
@@ -349,7 +350,7 @@ export function getConversations(filters: ConversationFilters = {}): {
   total: number;
 } {
   const db = getDb();
-  const { limit = 50, offset = 0, search, type, participant } = filters;
+  const { limit = 50, offset = 0, search, type, participant, location } = filters;
 
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -357,6 +358,11 @@ export function getConversations(filters: ConversationFilters = {}): {
   if (type) {
     conditions.push('c.type = ?');
     params.push(type);
+  }
+
+  if (location) {
+    conditions.push('c.location = ?');
+    params.push(location);
   }
 
   if (participant) {
