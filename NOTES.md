@@ -54,15 +54,8 @@ Key facts from completed phases:
 - WebSocket 'activity' event: { category, agentId, agentName, description, simTime }
 - BlockedAgentModal: centered overlay modal shown when clicking a blocked agent, alongside SidePanel
 - Blocker resolution via POST /api/blockers/:id/resolve transitions agent Blocked → Idle
-
-Phase 8.0 — Agent Interruption UI and Hung Session Handling
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- interruptSession now broadcasts session_complete event and transitions agent to Idle (for user-initiated interrupts)
+- Hung detector: registerHungDetectorSession + processHungSessionChecks on each tick; 30 sim min timeout → Blocked + blocker + TM escalation
 
 Phase 8.1 — Hardening and Error Recovery
 

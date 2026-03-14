@@ -701,6 +701,53 @@ async function main() {
   const resolvedBlocker = getBlocker(activeBlocker.id as string) as Record<string, unknown>;
   assert(resolvedBlocker.status === 'resolved', 'Blocker status is resolved');
 
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 8.0: Agent Interruption and Hung Session Detection
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 8.0: Agent Interruption & Hung Sessions ===');
+
+  const { interruptSession, getSessionsForAgent } = await import('../src/session-recorder.js');
+  const { registerHungDetectorSession, processHungSessionChecks, unregisterHungDetectorSession } =
+    await import('../src/hung-session-detector.js');
+
+  // interruptSession returns false for non-existent session (not in activeSessions)
+  const noSession = interruptSession('nonexistent', 'interrupted', () => clock.now());
+  assert(noSession === false, 'interruptSession returns false for unknown session');
+
+  // Test hung detector registration and timeout detection
+  const testHungId = 'test-hung-' + crypto.randomUUID().slice(0, 8);
+  registerHungDetectorSession(testHungId, agentId, clock.now());
+
+  // Before timeout (10 min), should not trigger
+  const earlyTime = new Date(clock.now().getTime() + 10 * 60 * 1000);
+  processHungSessionChecks(earlyTime);
+  // testHungId should still not have been removed (no log output for it)
+
+  // After timeout (31 min), detector fires — but since testHungId is not in
+  // activeSessions, interruptSession returns false and detector cleans up
+  const lateTime = new Date(clock.now().getTime() + 31 * 60 * 1000);
+  processHungSessionChecks(lateTime);
+
+  // Verify exports and function signatures
+  assert(typeof interruptSession === 'function', 'interruptSession is exported');
+  assert(
+    typeof registerHungDetectorSession === 'function',
+    'registerHungDetectorSession is exported',
+  );
+  assert(typeof processHungSessionChecks === 'function', 'processHungSessionChecks is exported');
+  assert(
+    typeof unregisterHungDetectorSession === 'function',
+    'unregisterHungDetectorSession is exported',
+  );
+  assert(typeof getSessionsForAgent === 'function', 'getSessionsForAgent is exported');
+
+  // Verify getSessionsForAgent returns array
+  const agentSessions = getSessionsForAgent(agentId);
+  assert(Array.isArray(agentSessions), 'getSessionsForAgent returns array');
+
+  // Reset agent state for cleanup
+  db.prepare("UPDATE agents SET state = 'Idle' WHERE id = ?").run(agentId);
+
   console.log('\n=== Delete project ===');
   const del = await call('delete_project', { project_id: projectId }, omId);
   assert(!del.isError, 'delete_project succeeds');

@@ -14,6 +14,7 @@ import {
   onToolCallComplete,
   unregisterHungDetectorSession,
 } from './hung-session-detector.js';
+import { transitionAgentState } from './state-machine.js';
 
 // ---------- WebSocket broadcast ----------
 
@@ -213,6 +214,7 @@ export function interruptSession(
   const active = activeSessions.get(sessionId);
   if (!active) return false;
 
+  const agentId = active.agentId;
   active.abort();
   activeSessions.delete(sessionId);
   unregisterHungDetectorSession(sessionId);
@@ -221,6 +223,27 @@ export function interruptSession(
   getDb()
     .prepare('UPDATE sessions SET ended_at = ?, outcome = ? WHERE id = ?')
     .run(simTime, outcome, sessionId);
+
+  // Broadcast session completion so the UI updates in real time
+  broadcastFn(agentId, {
+    type: 'session_complete',
+    sessionId,
+    agentId,
+    timestamp: simTime,
+    data: {
+      result: outcome,
+      durationMs: 0,
+      numTurns: 0,
+      totalCostUsd: 0,
+      tokenEstimate: 0,
+    },
+  });
+
+  // For user-initiated interrupts, transition agent to Idle
+  // (hung detector handles its own Blocked transition separately)
+  if (outcome === 'interrupted') {
+    transitionAgentState(agentId, 'Idle');
+  }
 
   console.log(`[session-recorder] Session ${sessionId} ${outcome}`);
   return true;

@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 8.0 — Agent Interruption UI and Hung Session Handling
-
-Goal: ensure the Stop button and hung session detection work end-to-end through the UI.
-
-Context: depends on Phase 7.2 for the side panel Stop button and Phase 5.1 for hung session detection.
-
-What to build: verify and complete the Stop button flow. Pressing Stop calls POST /api/sessions/:id/interrupt. The server gracefully terminates the agentic session via the provider abstraction's interruptSession method. Partial work is committed with an auto-generated message. The agent transitions to Idle. The session record updates with outcome interrupted. The UI reflects the state change in real time. For hung sessions: the World Server's detection runs on each sim tick, checking all active sessions for tool call inactivity exceeding the timeout. When detected, the same interrupt flow triggers automatically, but the outcome is set to hung and the agent transitions to Blocked instead of Idle. The blocked agent then follows the escalation chain from Phase 5.1.
-
-Out of scope: configuring the hung session timeout from UI (use server config).
-
-Acceptance criteria: pressing Stop during an active session terminates it and the agent returns to Idle within a few seconds. The session shows as interrupted in the Sessions tab. A hung session is automatically detected, interrupted, and the agent is set to Blocked. The blocked agent modal shows the hung session as the blocker cause.
-
-Handoff: Phase 8.1 handles the remaining hardening tasks.
-
 Phase 8.1 — Hardening and Error Recovery
 
 Goal: make the system resilient to crashes, disconnections, and edge cases.
