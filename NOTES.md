@@ -2,7 +2,7 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-Completed phases (1.0 through 7.3) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
+Completed phases have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
 
 Key facts from completed phases:
 
