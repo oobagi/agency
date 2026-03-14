@@ -68,23 +68,6 @@ The server starts on a configurable port (default 3001, set via `PORT` env var).
   - **Claude**: Run `claude` in your terminal and complete the auth flow
   - **Codex**: Run `codex` in your terminal and complete the auth flow
 
-## Current Status
-
-The server-side simulation engine is feature-complete through Phase 4.6. All core systems are implemented:
-
-- **Sim clock** with pause/resume/speed control (1x–10x)
-- **26 MCP tools** (24 implemented, 2 stubs for Phase 5.0)
-- **Agent hierarchy**: Office Manager, Team Managers, Regular Agents — all autonomous
-- **Physical movement** with 60Hz interpolation, proximity detection, state machine enforcement
-- **Communication** with proximity-gated `speak` and `send_to_manager` (walk-then-talk)
-- **Task lifecycle**: create → assign → begin → complete/blocked, with TM triggers
-- **Git operations**: real repos, worktrees, PRs, review/merge via simple-git
-- **Session recording** with WebSocket live streaming
-- **Daily schedules** with missed job handling
-- **Conversation recording** in the database
-
-Next up: Phase 5.0 (memory compression), then 3D viewport (Phase 7.x).
-
 ## Project Structure
 
 ```
@@ -106,6 +89,8 @@ agency/
 ├── DESIGN_DOC.md        # Full product and architecture specification
 ├── PHASES.md            # Granular phased implementation plan
 ├── NOTES.md             # Running log of implementation progress
+├── NOTES_COMPLETED.md   # Full details for completed phases
+├── CLAUDE.md            # Project instructions for AI agents
 └── README.md            # This file
 ```
 
