@@ -81,6 +81,73 @@ export function useAgents(
 
   // Subscribe to WebSocket position updates
   const handleMessage = useCallback((msg: WSMessage) => {
+    // Agent lifecycle events from management endpoints
+    if (msg.type === 'agent_hired') {
+      fetch(`/api/agents/${msg.agentId}`)
+        .then((r) => r.json())
+        .then((a: Agent) => {
+          setAgents((prev) => {
+            const next = new Map(prev);
+            next.set(a.id, {
+              id: a.id,
+              name: a.name,
+              role: a.role,
+              state: a.state,
+              teamColor: a.team_color,
+              x: a.position_x,
+              y: a.position_y,
+              z: a.position_z,
+              targetX: a.position_x,
+              targetZ: a.position_z,
+              moving: false,
+              activityIcon: null,
+              activityIconTime: 0,
+            });
+            return next;
+          });
+        })
+        .catch(() => {});
+      return;
+    }
+
+    if (msg.type === 'agent_fired') {
+      setAgents((prev) => {
+        const next = new Map(prev);
+        next.delete(msg.agentId);
+        return next;
+      });
+      return;
+    }
+
+    if (msg.type === 'agent_updated') {
+      fetch(`/api/agents/${msg.agentId}`)
+        .then((r) => r.json())
+        .then((a: Agent) => {
+          setAgents((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(a.id);
+            next.set(a.id, {
+              id: a.id,
+              name: a.name,
+              role: a.role,
+              state: a.state,
+              teamColor: a.team_color,
+              x: existing?.x ?? a.position_x,
+              y: existing?.y ?? a.position_y,
+              z: existing?.z ?? a.position_z,
+              targetX: a.position_x,
+              targetZ: a.position_z,
+              moving: existing?.moving ?? false,
+              activityIcon: existing?.activityIcon ?? null,
+              activityIconTime: existing?.activityIconTime ?? 0,
+            });
+            return next;
+          });
+        })
+        .catch(() => {});
+      return;
+    }
+
     if (msg.type === 'agent_position') {
       setAgents((prev) => {
         const next = new Map(prev);

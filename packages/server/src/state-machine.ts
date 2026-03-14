@@ -64,7 +64,7 @@ const TRANSITION_MAP: Record<AgentState, AgentState[]> = {
     'Blocked',
   ],
   Arriving: ['Walking', 'Idle'],
-  Walking: ['Idle', 'Meeting', 'Blocked'],
+  Walking: ['Idle', 'Meeting', 'Blocked', 'Departing'],
   Researching: ['Idle', 'Walking', 'Blocked', 'Break'],
   Programming: ['Idle', 'Walking', 'Blocked', 'Break'],
   Reviewing: ['Idle', 'Walking', 'Blocked'],

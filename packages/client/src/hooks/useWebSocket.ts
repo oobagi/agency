@@ -41,7 +41,10 @@ export type WSMessage =
       agentName: string;
       description: string;
       simTime: string;
-    };
+    }
+  | { type: 'agent_hired'; agentId: string; name: string; role: string }
+  | { type: 'agent_fired'; agentId: string }
+  | { type: 'agent_updated'; agentId: string };
 
 type MessageHandler = (msg: WSMessage) => void;
 

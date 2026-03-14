@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
 import { providerManager } from './providers/manager.js';
-import { SessionRecorder, getActiveSessionForAgent } from './session-recorder.js';
+import { SessionRecorder, claimSessionSlot, releaseSessionSlot } from './session-recorder.js';
 import { registerJobHandler, createDailyScheduleForAgent } from './scheduler.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
 import { buildSessionContext } from './context-assembly.js';
@@ -30,6 +30,8 @@ Blocker handling:
 Available tools include all manager-only tools: hire_agent, fire_agent, create_team, assign_agent_to_team, create_project, assign_team_to_project, create_worktree, schedule_event, review_pull_request, merge_pull_request, resolve_blocker, escalate_to_om, mark_blocker_user_facing, and more.
 
 When you hire an agent, they know NOTHING — only their persona. They must be briefed by their Team Manager before they can do meaningful work.
+
+After hiring agents, walk to the Onboarding Room (use walk_to_meeting_room with room_id "room-onboarding") to greet and brief new hires. Then assign them to a team using assign_agent_to_team — this automatically places them at a desk in the team's block. Teams are seated together in desk rows.
 
 Be decisive and autonomous. Do not wait for instructions. Evaluate the state of things and act.`;
 
@@ -137,8 +139,14 @@ function handleOMSession(
   _payload: Record<string, unknown>,
   _simTime: Date,
 ): boolean {
+  if (!claimSessionSlot(agentId)) {
+    console.log(`[office-manager] ${agentId} already has active/spawning session, skipping`);
+    return true;
+  }
+
   // Fire-and-forget: spawn the session asynchronously
   spawnOMSession(agentId).catch((err) => {
+    releaseSessionSlot(agentId);
     console.error('[office-manager] Session spawn failed:', err);
   });
   return true;
@@ -156,17 +164,22 @@ async function spawnOMSession(omId: string): Promise<void> {
 
   console.log(`[office-manager] Spawning session (model=${model})`);
 
-  const session = await provider.spawnSession({
-    agentId: omId,
-    systemPrompt: OFFICE_MANAGER_PERSONA,
-    context,
-    mcpTools,
-    provider: provider.name,
-    model,
-  });
+  try {
+    const session = await provider.spawnSession({
+      agentId: omId,
+      systemPrompt: OFFICE_MANAGER_PERSONA,
+      context,
+      mcpTools,
+      provider: provider.name,
+      model,
+    });
 
-  // Record the session
-  new SessionRecorder(session, provider.name, model, simNowFn);
+    // Record the session (constructor releases spawning guard)
+    new SessionRecorder(session, provider.name, model, simNowFn);
+  } catch (err) {
+    releaseSessionSlot(omId);
+    throw err;
+  }
 }
 
 // ── Build Office Manager context ───────────────────────────────────
@@ -259,6 +272,24 @@ function buildOMContext(omId: string): string {
     );
   } else {
     sections.push('## Agents\nNo other agents exist. Consider hiring some.');
+  }
+
+  // Agents in onboarding (no team/desk)
+  const onboardingAgents = db
+    .prepare(
+      `SELECT id, name, role FROM agents
+       WHERE desk_id IS NULL AND team_id IS NULL AND fired_at IS NULL AND role != 'office_manager'
+       ORDER BY created_at ASC`,
+    )
+    .all() as Array<{ id: string; name: string; role: string }>;
+  if (onboardingAgents.length > 0) {
+    sections.push(
+      '## Agents in Onboarding Room\n' +
+        'These agents have been hired but are not yet assigned to a team. ' +
+        'Walk to the Onboarding Room (room_id: "room-onboarding") to greet them, ' +
+        'then assign them to a team.\n' +
+        onboardingAgents.map((a) => `- **${a.name}** (${a.id}) — role: ${a.role}`).join('\n'),
+    );
   }
 
   // Unresolved blockers (from blockers table, showing escalation details)
@@ -361,19 +392,34 @@ function buildOMContext(omId: string): string {
     );
   }
 
-  // User messages (from chat_logs where speaker_type = 'user' and agent_id = OM)
-  const userMessages = db
+  // Conversation history (user messages + your own replies)
+  const chatHistory = db
     .prepare(
-      `SELECT * FROM chat_logs
-       WHERE agent_id = ? AND speaker_type = 'user'
-       ORDER BY created_at DESC LIMIT 10`,
+      `SELECT cl.*, a.name as speaker_name FROM chat_logs cl
+       LEFT JOIN agents a ON cl.speaker_id = a.id
+       WHERE cl.agent_id = ?
+       ORDER BY cl.created_at DESC LIMIT 20`,
     )
-    .all(omId) as Array<{ message: string; sim_time: string }>;
-  if (userMessages.length > 0) {
+    .all(omId) as Array<{
+    message: string;
+    speaker_name: string | null;
+    speaker_type: string;
+    sim_time: string;
+  }>;
+  if (chatHistory.length > 0) {
+    const hasUserMessages = chatHistory.some((cl) => cl.speaker_type === 'user');
     sections.push(
-      '## User Messages\nThe user has sent you the following messages:\n' +
-        userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n') +
-        '\n\n**Use the `reply_to_user` tool to respond to the user directly.**',
+      '## Conversation History\n' +
+        chatHistory
+          .reverse()
+          .map((cl) => {
+            const speaker = cl.speaker_type === 'user' ? '**User**' : (cl.speaker_name ?? 'You');
+            return `- [${cl.sim_time}] ${speaker}: ${cl.message}`;
+          })
+          .join('\n') +
+        (hasUserMessages
+          ? '\n\n**Use the `reply_to_user` tool to respond to the user. Do NOT repeat what you already said above.**'
+          : ''),
     );
   }
 
@@ -408,7 +454,7 @@ function buildOMContext(omId: string): string {
 // ── Trigger immediate session on user message ─────────────────────
 
 export function triggerUserMessageSession(agentId: string): void {
-  if (getActiveSessionForAgent(agentId)) {
+  if (!claimSessionSlot(agentId)) {
     console.log(`[user-message] Agent ${agentId} already in session, message will be picked up`);
     return;
   }
@@ -417,14 +463,19 @@ export function triggerUserMessageSession(agentId: string): void {
   const agent = db.prepare('SELECT role FROM agents WHERE id = ?').get(agentId) as
     | { role: string }
     | undefined;
-  if (!agent) return;
+  if (!agent) {
+    releaseSessionSlot(agentId);
+    return;
+  }
 
   if (agent.role === 'office_manager') {
     spawnOMSession(agentId).catch((err) => {
+      releaseSessionSlot(agentId);
       console.error('[user-message] OM session failed:', err);
     });
   } else {
     spawnAgentSession(agentId).catch((err) => {
+      releaseSessionSlot(agentId);
       console.error('[user-message] Agent session failed:', err);
     });
   }
@@ -450,16 +501,21 @@ async function spawnAgentSession(agentId: string): Promise<void> {
 
   console.log(`[user-message] Spawning session for ${agentId} (role=${agent.role})`);
 
-  const session = await provider.spawnSession({
-    agentId,
-    systemPrompt: agent.persona,
-    context,
-    mcpTools,
-    provider: provider.name,
-    model,
-  });
+  try {
+    const session = await provider.spawnSession({
+      agentId,
+      systemPrompt: agent.persona,
+      context,
+      mcpTools,
+      provider: provider.name,
+      model,
+    });
 
-  new SessionRecorder(session, provider.name, model, simNowFn);
+    new SessionRecorder(session, provider.name, model, simNowFn);
+  } catch (err) {
+    releaseSessionSlot(agentId);
+    throw err;
+  }
 }
 
 // ── User message to agent ─────────────────────────────────────────

@@ -33,6 +33,28 @@ export function setSessionBroadcast(fn: BroadcastFn): void {
 
 const activeSessions = new Map<string, { agentId: string; abort: () => void }>();
 
+/** Agents currently in the async gap between spawn start and SessionRecorder creation. */
+const spawningAgents = new Set<string>();
+
+/**
+ * Claim a session slot for an agent. Returns true if the slot was claimed,
+ * false if the agent already has an active or spawning session.
+ * Must be called synchronously before any async spawn work.
+ */
+export function claimSessionSlot(agentId: string): boolean {
+  if (spawningAgents.has(agentId)) return false;
+  if (getActiveSessionForAgent(agentId)) return false;
+  spawningAgents.add(agentId);
+  return true;
+}
+
+/**
+ * Release a session slot if the spawn failed before SessionRecorder was created.
+ */
+export function releaseSessionSlot(agentId: string): void {
+  spawningAgents.delete(agentId);
+}
+
 export function getActiveSession(sessionId: string) {
   return activeSessions.get(sessionId);
 }
@@ -89,11 +111,12 @@ export class SessionRecorder {
       )
       .run(this.dbSessionId, this.agentId, simDay, provider, model, simTime.toISOString(), now);
 
-    // Track as active
+    // Track as active and release spawning guard
     activeSessions.set(this.sessionId, {
       agentId: this.agentId,
       abort: session.abort,
     });
+    spawningAgents.delete(this.agentId);
 
     // Register with context monitor and hung detector
     registerSession(this.sessionId, this.agentId, model, 0);

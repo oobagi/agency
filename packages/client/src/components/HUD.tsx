@@ -11,6 +11,8 @@ interface HUDProps {
   onToggleProjects: () => void;
   showSchedule: boolean;
   onToggleSchedule: () => void;
+  showManage: boolean;
+  onToggleManage: () => void;
 }
 
 const SPEEDS = [1, 2, 5, 10];
@@ -92,6 +94,8 @@ export function HUD({
   onToggleProjects,
   showSchedule,
   onToggleSchedule,
+  showManage,
+  onToggleManage,
 }: HUDProps) {
   const togglePause = useCallback(async () => {
     const endpoint = simState.paused ? '/api/sim/resume' : '/api/sim/pause';
@@ -143,6 +147,10 @@ export function HUD({
           onClick={onToggleSchedule}
         >
           Schedule
+        </button>
+
+        <button style={showManage ? styles.activeButton : styles.button} onClick={onToggleManage}>
+          Manage
         </button>
 
         <button style={styles.button} onClick={togglePause}>
