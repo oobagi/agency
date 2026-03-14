@@ -424,6 +424,101 @@ async function main() {
     console.log('  ⚠ No personas loaded — skipping agent-level tests');
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.0: Office Layout Endpoint & Seed Data
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.0: Office Layout & Meeting Rooms ===');
+
+  // Meeting rooms seeded by migration 004
+  const meetingRooms = db.prepare('SELECT * FROM meeting_rooms').all() as Array<{
+    id: string;
+    name: string;
+    capacity: number;
+  }>;
+  assert(meetingRooms.length === 3, `3 meeting rooms seeded (got ${meetingRooms.length})`);
+
+  const roomNames = meetingRooms.map((r) => r.name).sort();
+  assert(
+    roomNames.includes('Alpha Room') &&
+      roomNames.includes('Beta Room') &&
+      roomNames.includes('Gamma Room'),
+    'Meeting rooms are Alpha, Beta, Gamma',
+  );
+
+  // Office layout seeded by migration 005
+  const layoutElements = db.prepare('SELECT * FROM office_layout').all() as Array<{
+    id: string;
+    type: string;
+  }>;
+  assert(layoutElements.length > 0, 'Office layout elements seeded');
+
+  const floor = layoutElements.filter((e) => e.type === 'floor');
+  assert(floor.length === 1, 'One floor element exists');
+
+  const walls = layoutElements.filter((e) => e.type === 'wall');
+  assert(walls.length > 0, 'Wall elements exist');
+
+  const outerWalls = walls.filter(
+    (w) =>
+      w.id.startsWith('wall-north') ||
+      w.id.startsWith('wall-south') ||
+      w.id.startsWith('wall-east') ||
+      w.id.startsWith('wall-west'),
+  );
+  assert(outerWalls.length === 4, `4 outer walls (got ${outerWalls.length})`);
+
+  const roomWalls = walls.filter(
+    (w) =>
+      w.id.startsWith('wall-alpha') ||
+      w.id.startsWith('wall-beta') ||
+      w.id.startsWith('wall-gamma'),
+  );
+  assert(roomWalls.length === 12, `12 meeting room walls (4 per room, got ${roomWalls.length})`);
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.1: retargetWalking
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.1: retargetWalking ===');
+
+  if (tmId) {
+    const { retargetWalking, startWalking } = await import('../src/movement.js');
+
+    // Put agent in walkable state
+    db.prepare("UPDATE agents SET state = 'Idle', position_x = 0, position_z = 0 WHERE id = ?").run(
+      tmId,
+    );
+
+    // Start walking
+    startWalking(tmId, 10, 10, 'test-target');
+    const walkState = db.prepare('SELECT state FROM agents WHERE id = ?').get(tmId) as {
+      state: string;
+    };
+    assert(walkState.state === 'Walking', 'Agent enters Walking state');
+
+    // Retarget
+    const retargeted = retargetWalking(tmId, 20, 20);
+    assert(retargeted === true, 'retargetWalking succeeds for walking agent');
+
+    // Non-existent agent
+    const failRetarget = retargetWalking('nonexistent', 0, 0);
+    assert(failRetarget === false, 'retargetWalking fails for unknown agent');
+
+    // Reset
+    db.prepare("UPDATE agents SET state = 'Idle' WHERE id = ?").run(tmId);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.2: SessionRecorder.onComplete
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.2: SessionRecorder.onComplete ===');
+
+  // Verify SessionRecorder class has onComplete method
+  const { SessionRecorder } = await import('../src/session-recorder.js');
+  assert(
+    typeof SessionRecorder.prototype.onComplete === 'function',
+    'SessionRecorder has onComplete method',
+  );
+
   console.log('\n=== Delete project ===');
   const del = await call('delete_project', { project_id: projectId }, omId);
   assert(!del.isError, 'delete_project succeeds');
