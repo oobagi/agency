@@ -40,6 +40,13 @@ import {
   getConversation,
 } from './handlers/communication.js';
 import { getTasks, getAgentTasks } from './handlers/task-system.js';
+import {
+  getProjects,
+  getProject,
+  getProjectPRs,
+  getPRDetails,
+  getWorktrees,
+} from './handlers/git-operations.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -243,6 +250,35 @@ const server = http.createServer(async (req, res) => {
   if (url?.match(/^\/api\/agents\/[^/]+\/tasks$/) && method === 'GET') {
     const agentId = url.split('/')[3];
     return json(res, getAgentTasks(agentId));
+  }
+
+  // ── Project and PR endpoints ────────────────────────────────────
+  if (url === '/api/projects' && method === 'GET') {
+    return json(res, getProjects());
+  }
+
+  if (url?.match(/^\/api\/projects\/[^/]+$/) && method === 'GET') {
+    const projectId = url.split('/')[3];
+    const project = getProject(projectId);
+    if (!project) return json(res, { error: 'Project not found' }, 404);
+    return json(res, project);
+  }
+
+  if (url?.match(/^\/api\/projects\/[^/]+\/prs$/) && method === 'GET') {
+    const projectId = url.split('/')[3];
+    return json(res, getProjectPRs(projectId));
+  }
+
+  if (url?.match(/^\/api\/projects\/[^/]+\/worktrees$/) && method === 'GET') {
+    const projectId = url.split('/')[3];
+    return json(res, getWorktrees(projectId));
+  }
+
+  if (url?.match(/^\/api\/prs\/[^/]+$/) && method === 'GET') {
+    const prId = url.split('/')[3];
+    const result = await getPRDetails(prId);
+    if (!result) return json(res, { error: 'PR not found' }, 404);
+    return json(res, result);
   }
 
   if (url === '/api/sim/speed' && method === 'POST') {

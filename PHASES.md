@@ -21,22 +21,9 @@ Full specs for completed phases are in the git history. See @NOTES_COMPLETED.md 
 - **Phase 4.3** — Movement & state machine: `TRANSITION_MAP`, position enforcement, 60Hz decoupled render loop, proximity detection (2.5 units), walk handlers, `set_state`.
 - **Phase 4.4** — Physical communication: `speak` with proximity enforcement, `send_to_manager` with auto-walk, conversation recording system, WebSocket speak broadcast.
 - **Phase 4.5** — Task system: `create_task`, `begin_task`, `complete_task`, `report_blocker` handlers, task lifecycle (pending → in_progress → completed/blocked), TM triggers on completion/blocker.
+- **Phase 4.6** — PR system & Git ops: `create_project`, `delete_project`, `assign_team_to_project`, `create_worktree`, `commit_work`, `open_pull_request`, `review_pull_request`, `merge_pull_request` via simple-git. Hard constraint 7 enforced.
 
 Upcoming Phases
-
-Phase 4.6 — PR System and Git Operations
-
-Goal: implement the pull request workflow and Git operations that agents use to manage code in external repos.
-
-Context: depends on Phase 4.5 for task completion and Phase 3.1 for project and worktree records. Install simple-git. Remember hard constraint 2: Agency tracks metadata only, never reads or writes actual code in external repos. However, agents working through their agentic sessions do interact with the repos via their provider's built-in tools. Agency itself only runs Git metadata commands (branch listing, diff generation, PR status).
-
-What to build: implement the create_project MCP tool handler. When the Office Manager calls it, initialize a new Git repo on disk at a specified path using simple-git, create the project record, and set up the default branch. Implement create_worktree: create a Git worktree in the project repo for a team's branch. Implement commit_work: record a commit entry in the database (the actual commit is made by the agentic session, not by Agency). Implement open_pull_request: create a PR record in the pull_requests table. Implement review_pull_request: allow a Team Manager to approve or reject a PR. Implement merge_pull_request: merge the PR's source branch into the target branch using simple-git and update the PR status to merged. Hard constraint 7: only Team Managers can merge, never the authoring agent. Add REST endpoints: GET /api/projects/:id/prs for listing PRs, GET /api/prs/:id for PR details including diff. The diff endpoint uses simple-git to generate the diff between source and target branches.
-
-Out of scope: the diff viewer UI panel (Phase 7.5), cross-team PRs.
-
-Acceptance criteria: create_project initializes a real Git repo on disk. create_worktree creates a real Git worktree. open_pull_request creates a PR record. review_pull_request updates PR status to approved or rejected. merge_pull_request performs a real Git merge and updates the record. Only agents with manager role can call review and merge tools. REST endpoints return correct PR and diff data.
-
-Handoff: the full agentic workflow is now possible: Office Manager creates project → creates team → hires agents → Team Manager assigns tasks → agent works at desk → agent opens PR → Team Manager reviews and merges.
 
 Phase 5.0 — Memory Compression Pipeline
 

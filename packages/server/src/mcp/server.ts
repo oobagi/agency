@@ -17,6 +17,16 @@ import {
   handleCompleteTask,
   handleReportBlocker,
 } from '../handlers/task-system.js';
+import {
+  handleCreateProject,
+  handleDeleteProject,
+  handleAssignTeamToProject,
+  handleCreateWorktree,
+  handleCommitWork,
+  handleOpenPullRequest,
+  handleReviewPullRequest,
+  handleMergePullRequest,
+} from '../handlers/git-operations.js';
 import { handleScheduleEvent } from '../scheduler.js';
 import {
   handleWalkToDesk,
@@ -59,6 +69,14 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   begin_task: handleBeginTask,
   complete_task: handleCompleteTask,
   report_blocker: handleReportBlocker,
+  create_project: handleCreateProject,
+  delete_project: handleDeleteProject,
+  assign_team_to_project: handleAssignTeamToProject,
+  create_worktree: handleCreateWorktree,
+  commit_work: handleCommitWork,
+  open_pull_request: handleOpenPullRequest,
+  review_pull_request: handleReviewPullRequest,
+  merge_pull_request: handleMergePullRequest,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------
