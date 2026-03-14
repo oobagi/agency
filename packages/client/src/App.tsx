@@ -36,7 +36,7 @@ const styles = {
 type LeftPanel = 'conversations' | 'projects' | 'schedule' | null;
 
 export function App() {
-  const { connected, simState, subscribe } = useWebSocket();
+  const { connected, simState, updateSimState, subscribe } = useWebSocket();
   const { data: layout, error } = useOfficeLayout();
   const agents = useAgents(subscribe, connected);
   const chatBubbles = useChatBubbles(subscribe);
@@ -75,6 +75,7 @@ export function App() {
       <HUD
         simState={simState}
         connected={connected}
+        onUpdateSimState={updateSimState}
         showConversations={leftPanel === 'conversations'}
         onToggleConversations={() => togglePanel('conversations')}
         showProjects={leftPanel === 'projects'}

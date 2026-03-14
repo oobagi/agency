@@ -4,6 +4,7 @@ import type { SimState } from '../hooks/useWebSocket';
 interface HUDProps {
   simState: SimState;
   connected: boolean;
+  onUpdateSimState: (partial: Partial<SimState>) => void;
   showConversations: boolean;
   onToggleConversations: () => void;
   showProjects: boolean;
@@ -84,6 +85,7 @@ function formatSimTime(iso: string): string {
 export function HUD({
   simState,
   connected,
+  onUpdateSimState,
   showConversations,
   onToggleConversations,
   showProjects,
@@ -93,16 +95,25 @@ export function HUD({
 }: HUDProps) {
   const togglePause = useCallback(async () => {
     const endpoint = simState.paused ? '/api/sim/resume' : '/api/sim/pause';
-    await fetch(endpoint, { method: 'POST' });
-  }, [simState.paused]);
+    const res = await fetch(endpoint, { method: 'POST' });
+    if (res.ok) {
+      onUpdateSimState({ paused: !simState.paused });
+    }
+  }, [simState.paused, onUpdateSimState]);
 
-  const setSpeed = useCallback(async (multiplier: number) => {
-    await fetch('/api/sim/speed', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ multiplier }),
-    });
-  }, []);
+  const setSpeed = useCallback(
+    async (multiplier: number) => {
+      const res = await fetch('/api/sim/speed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ multiplier }),
+      });
+      if (res.ok) {
+        onUpdateSimState({ speed: multiplier });
+      }
+    },
+    [onUpdateSimState],
+  );
 
   return (
     <div style={styles.container}>

@@ -124,5 +124,9 @@ export function useWebSocket() {
       .catch(() => {});
   }, []);
 
-  return { connected, simState, subscribe };
+  const updateSimState = useCallback((partial: Partial<SimState>) => {
+    setSimState((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  return { connected, simState, updateSimState, subscribe };
 }
