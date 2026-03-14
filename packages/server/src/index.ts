@@ -31,6 +31,8 @@ import {
   getChatLogs,
 } from './office-manager.js';
 import { setTeamManagerSimClock } from './team-manager.js';
+import { setContextSimClock } from './context-assembly.js';
+import { setIdleCheckerSimClock, processIdleChecks } from './idle-checker.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -41,6 +43,8 @@ const clock = new SimClock();
 setSimClock(() => clock.now());
 setOfficeManagerSimClock(() => clock.now());
 setTeamManagerSimClock(() => clock.now());
+setContextSimClock(() => clock.now());
+setIdleCheckerSimClock(() => clock.now());
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -266,6 +270,9 @@ wss.on('connection', (ws) => {
 clock.onTick((simTime) => {
   // Run scheduled jobs on every tick
   processSchedulerTick(simTime);
+
+  // Check for idle agents that need to check in with their TM
+  processIdleChecks(simTime);
 
   const message = JSON.stringify({
     type: 'tick',

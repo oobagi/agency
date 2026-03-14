@@ -2,6 +2,7 @@ import { getDb } from './db.js';
 import { providerManager } from './providers/manager.js';
 import { SessionRecorder, getActiveSessionForAgent } from './session-recorder.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
+import { resetIdleTimer } from './idle-checker.js';
 
 // ── Sim clock accessor ─────────────────────────────────────────────
 
@@ -304,5 +305,10 @@ export function onAgentStateChange(agentId: string, oldState: string, newState: 
   // Trigger: Team Manager arrives at desk (Walking → Idle)
   if (agent.role === 'team_manager' && oldState === 'Walking' && newState === 'Idle') {
     triggerTMDeskArrival(agentId);
+  }
+
+  // Reset idle timer when agent leaves Idle state
+  if (oldState === 'Idle' && newState !== 'Idle') {
+    resetIdleTimer(agentId);
   }
 }

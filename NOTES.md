@@ -103,12 +103,12 @@ Notes for the next agent: Import trigger functions from ./team-manager.js: trigg
 
 Phase 4.2 — Regular Agent Idle Check-in and Context Assembly
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Two modules. (1) Context assembly module (src/context-assembly.ts) with buildSessionContext(agentId, taskContext?) that assembles session context for any agent: persona system prompt, current sim time, current/pending task or "no tasks" message, last 10 chat logs, top 3 memory chunks (plain text for now — vector search in Phase 5.0), team info with TM name for regular agents, and available MCP tools filtered by role (regular agents don't see manager-only tools). Enforces ~100k token budget with truncation. (2) Idle checker module (src/idle-checker.ts) with processIdleChecks(simTime) called on every tick. Tracks how long each regular agent with no tasks has been Idle using a Map of sim timestamps. At 30 sim minutes, triggers a TM desk arrival session so the TM can assign work. Timer resets after trigger and when agent leaves Idle state. resetIdleTimer() called from onAgentStateChange() when agents transition out of Idle.
+What was skipped or deferred: Vector similarity search for memory retrieval (deferred to Phase 5.0 per spec — using plain recency-based retrieval for now).
+Deviations from the spec and why: None.
+Issues encountered: None.
+Notes for the next agent: Import buildSessionContext from ./context-assembly.js for all session-spawning code. It replaces ad-hoc context building. The OM and TM modules still use their own specialized context builders since they need different information (team-scoped vs global). Regular agent sessions should use buildSessionContext. processIdleChecks runs on every tick from index.ts. Phase 5.0 will add vector search to replace the plain memory retrieval.
 
 Phase 4.3 — Physical Movement and State Machine
 
