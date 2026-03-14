@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.7 — Blocked Agent Modal
-
-Goal: implement the guided resolution modal for blocked agents.
-
-Context: depends on Phase 5.1 for blocker data and Phase 7.1 for the visual blocked indicator.
-
-What to build: when the user clicks a blocked agent (one with the red exclamation mark), open a modal instead of (or in addition to) the side panel. The modal displays: the agent's name and role, a plain-language description of what went wrong, the escalation chain that was attempted (e.g., "Team Manager Alex tried to resolve this but could not"), the specific external action needed from the user (e.g., "Run `claude` in your terminal to authenticate the Claude CLI"), step-by-step instructions for resolution, and a "Mark as Resolved" button. When the user clicks "Mark as Resolved," the World Server transitions the agent from Blocked to Idle and resumes normal operation. If the blocker was not actually resolved, the agent will re-encounter it and re-escalate.
-
-Out of scope: automatic detection of resolution (checking if CLI auth exists), agent-specific troubleshooting beyond generic steps.
-
-Acceptance criteria: clicking a blocked agent shows a modal with the blocker description and resolution steps. The modal shows the escalation history. Clicking "Mark as Resolved" transitions the agent to Idle. The agent resumes work after resolution.
-
-Handoff: the UI is now functionally complete. Phase 8.x handles hardening.
-
 Phase 8.0 — Agent Interruption UI and Hung Session Handling
 
 Goal: ensure the Stop button and hung session detection work end-to-end through the UI.

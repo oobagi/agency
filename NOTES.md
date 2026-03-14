@@ -52,15 +52,8 @@ Key facts from completed phases:
 - SchedulePanel: tabbed with Schedule (timeline) and Activity Log (real-time feed)
 - Activity broadcast: setActivityBroadcast/broadcastActivity in state-machine.ts; fires on state transitions, session events, blocker escalations
 - WebSocket 'activity' event: { category, agentId, agentName, description, simTime }
-
-Phase 7.7 — Blocked Agent Modal
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- BlockedAgentModal: centered overlay modal shown when clicking a blocked agent, alongside SidePanel
+- Blocker resolution via POST /api/blockers/:id/resolve transitions agent Blocked → Idle
 
 Phase 8.0 — Agent Interruption UI and Hung Session Handling
 

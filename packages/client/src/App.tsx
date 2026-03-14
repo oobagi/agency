@@ -9,6 +9,7 @@ import { SidePanel } from './components/SidePanel';
 import { ConversationsPanel } from './components/ConversationsPanel';
 import { DiffViewerPanel } from './components/DiffViewerPanel';
 import { SchedulePanel } from './components/SchedulePanel';
+import { BlockedAgentModal } from './components/BlockedAgentModal';
 
 const styles = {
   root: {
@@ -65,6 +66,9 @@ export function App() {
     return <div style={styles.loading}>Loading office...</div>;
   }
 
+  const selectedAgent = selectedAgentId ? agents.get(selectedAgentId) : null;
+  const isBlocked = selectedAgent?.state === 'Blocked';
+
   return (
     <div style={styles.root}>
       <HUD
@@ -98,6 +102,14 @@ export function App() {
       )}
       {selectedAgentId && (
         <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
+      )}
+      {selectedAgentId && isBlocked && selectedAgent && (
+        <BlockedAgentModal
+          agentId={selectedAgentId}
+          agentName={selectedAgent.name}
+          agentRole={selectedAgent.role}
+          onClose={handleClose}
+        />
       )}
     </div>
   );

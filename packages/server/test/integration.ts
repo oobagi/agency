@@ -151,6 +151,7 @@ async function main() {
   // Hire a team manager
   let tmId = '';
   let worktreeId = '';
+  let agentId = '';
   if (persona) {
     const tmResult = await call(
       'hire_agent',
@@ -170,7 +171,7 @@ async function main() {
       .get(persona.id) as { id: string };
     const agentResult = await call('hire_agent', { persona_id: persona2.id }, omId);
     assert(!agentResult.isError, 'hire_agent (regular) succeeds');
-    const agentId = agentResult.data.agent_id;
+    agentId = agentResult.data.agent_id;
 
     // Assign agent to team
     const assignAgent = await call(
@@ -653,6 +654,52 @@ async function main() {
   });
   broadcastActivity('test', omId, 'test event', new Date().toISOString());
   assert(activityReceived, 'broadcastActivity fires the callback');
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.7: Blocked Agent Modal (blocker resolution flow)
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.7: Blocked Agent Modal ===');
+
+  const { getBlockersForAgent, getBlocker, resolveBlocker } = await import('../src/blockers.js');
+
+  // Reset agent to Blocked (may have been changed by send_to_manager test)
+  db.prepare("UPDATE agents SET state = 'Blocked' WHERE id = ?").run(agentId);
+  const agentState = db.prepare('SELECT state FROM agents WHERE id = ?').get(agentId) as {
+    state: string;
+  };
+  assert(agentState.state === 'Blocked', 'Agent is in Blocked state');
+
+  // getBlockersForAgent returns blockers
+  const agentBlockers = getBlockersForAgent(agentId);
+  assert(agentBlockers.length > 0, 'getBlockersForAgent returns blockers');
+
+  const activeBlocker = agentBlockers[0] as Record<string, unknown>;
+  assert(typeof activeBlocker.id === 'string', 'Blocker has id');
+  assert(typeof activeBlocker.description === 'string', 'Blocker has description');
+  assert(typeof activeBlocker.escalation_history === 'string', 'Blocker has escalation_history');
+
+  // getBlocker returns single blocker detail
+  const blockerDetail = getBlocker(activeBlocker.id as string);
+  assert(blockerDetail !== undefined, 'getBlocker returns blocker by id');
+
+  // Resolve the blocker (args: blockerId, resolvedById, resolution, simTime)
+  const resolveResult = resolveBlocker(
+    activeBlocker.id as string,
+    'user',
+    'Resolved by test',
+    new Date(),
+  );
+  assert(resolveResult.success === true, 'resolveBlocker succeeds');
+
+  // Agent should transition from Blocked to Idle
+  const afterResolve = db.prepare('SELECT state FROM agents WHERE id = ?').get(agentId) as {
+    state: string;
+  };
+  assert(afterResolve.state === 'Idle', 'Agent transitions to Idle after resolution');
+
+  // Blocker should be resolved
+  const resolvedBlocker = getBlocker(activeBlocker.id as string) as Record<string, unknown>;
+  assert(resolvedBlocker.status === 'resolved', 'Blocker status is resolved');
 
   console.log('\n=== Delete project ===');
   const del = await call('delete_project', { project_id: projectId }, omId);
