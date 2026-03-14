@@ -52,7 +52,12 @@ export function OfficeFurniture({ layout }: Props) {
             </mesh>
           ))}
           {/* Room label */}
-          <Html position={[0, 3.2, 0]} center style={{ pointerEvents: 'none' }}>
+          <Html
+            position={[0, 3.2, 0]}
+            center
+            style={{ pointerEvents: 'none' }}
+            zIndexRange={[0, 0]}
+          >
             <div
               style={{
                 color: '#a0aec0',

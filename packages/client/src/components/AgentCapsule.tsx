@@ -89,21 +89,21 @@ export function AgentCapsule({ agent, selected, onClick }: AgentCapsuleProps) {
       </mesh>
 
       {/* Name label + state */}
-      <Html position={[0, 1.6, 0]} center style={labelStyle}>
+      <Html position={[0, 1.6, 0]} center style={labelStyle} zIndexRange={[0, 0]}>
         <div style={nameStyle}>{agent.name}</div>
         <div style={stateStyle}>{agent.state}</div>
       </Html>
 
       {/* Blocked indicator */}
       {agent.state === 'Blocked' && (
-        <Html position={[0, 2.0, 0]} center style={labelStyle}>
+        <Html position={[0, 2.0, 0]} center style={labelStyle} zIndexRange={[0, 0]}>
           <div style={blockedStyle}>!</div>
         </Html>
       )}
 
       {/* Activity icon */}
       {agent.activityIcon && (
-        <Html position={[0.4, 1.4, 0]} center style={labelStyle}>
+        <Html position={[0.4, 1.4, 0]} center style={labelStyle} zIndexRange={[0, 0]}>
           <div style={activityStyle}>{agent.activityIcon}</div>
         </Html>
       )}
