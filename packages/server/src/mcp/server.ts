@@ -11,6 +11,12 @@ import {
   handleAssignAgentToTeam,
 } from '../handlers/agent-management.js';
 import { handleSpeak, handleSendToManager } from '../handlers/communication.js';
+import {
+  handleCreateTask,
+  handleBeginTask,
+  handleCompleteTask,
+  handleReportBlocker,
+} from '../handlers/task-system.js';
 import { handleScheduleEvent } from '../scheduler.js';
 import {
   handleWalkToDesk,
@@ -49,6 +55,10 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   set_state: handleSetState,
   speak: handleSpeak,
   send_to_manager: handleSendToManager,
+  create_task: handleCreateTask,
+  begin_task: handleBeginTask,
+  complete_task: handleCompleteTask,
+  report_blocker: handleReportBlocker,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------

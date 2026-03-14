@@ -39,6 +39,7 @@ import {
   getConversations,
   getConversation,
 } from './handlers/communication.js';
+import { getTasks, getAgentTasks } from './handlers/task-system.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -229,6 +230,19 @@ const server = http.createServer(async (req, res) => {
     const conversation = getConversation(conversationId);
     if (!conversation) return json(res, { error: 'Conversation not found' }, 404);
     return json(res, conversation);
+  }
+
+  // ── Task endpoints ────────────────────────────────────────────────
+  if (url?.startsWith('/api/tasks') && method === 'GET' && url === '/api/tasks') {
+    const parsedUrl = new URL(url, `http://localhost:${PORT}`);
+    const status = parsedUrl.searchParams.get('status') ?? undefined;
+    const teamId = parsedUrl.searchParams.get('team_id') ?? undefined;
+    return json(res, getTasks({ status, team_id: teamId }));
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/tasks$/) && method === 'GET') {
+    const agentId = url.split('/')[3];
+    return json(res, getAgentTasks(agentId));
   }
 
   if (url === '/api/sim/speed' && method === 'POST') {

@@ -78,6 +78,18 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
       'Start working on a task. You must be seated at your desk. Transitions you to Programming or Researching.',
     inputSchema: z.object({
       task_id: z.string().describe('ID of the task to begin'),
+      mode: z
+        .enum(['programming', 'researching'] as const)
+        .optional()
+        .describe('Work mode: "programming" (default) or "researching"'),
+    }),
+    managerOnly: false,
+  },
+  complete_task: {
+    description:
+      'Mark a task as completed. You must be in Programming or Researching state. Transitions you to Idle and notifies your Team Manager.',
+    inputSchema: z.object({
+      task_id: z.string().describe('ID of the task to complete'),
     }),
     managerOnly: false,
   },
@@ -119,6 +131,18 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
   },
 
   // ── Manager-only tools ──────────────────────────────────────────
+  create_task: {
+    description: 'Create a new task for a team. Optionally assign it to an agent immediately.',
+    inputSchema: z.object({
+      title: z.string().describe('Task title'),
+      description: z.string().describe('Task description and acceptance criteria'),
+      team_id: z.string().describe('ID of the team this task belongs to'),
+      project_id: z.string().describe('ID of the project this task is for'),
+      priority: z.number().optional().describe('Priority (higher = more important, default 0)'),
+      agent_id: z.string().optional().describe('ID of the agent to assign (optional)'),
+    }),
+    managerOnly: true,
+  },
   hire_agent: {
     description:
       'Hire a new agent with a persona. Optionally set role to team_manager. The agent starts knowing nothing.',
