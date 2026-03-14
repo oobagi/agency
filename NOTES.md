@@ -49,12 +49,12 @@ Notes for the next agent: Import getPersonas() from ./personas.js to query store
 
 Phase 3.0 — Provider Abstraction Layer
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Provider abstraction in src/providers/ with four modules. types.ts defines AgenticProvider interface, SessionConfig, Session, and SessionEvent types (tool_call_start, tool_call_complete, session_complete, session_error). claude-agent-sdk.ts implements ClaudeAgentSdkProvider wrapping @anthropic-ai/claude-agent-sdk query() function — spawns sessions with in-process MCP server (via createSdkMcpServer/tool helpers), streams SDK messages mapped to SessionEvents, supports interrupt via Query.interrupt() and abort via Query.close(). codex.ts implements CodexProvider with same interface (placeholder — returns session_error, to be wired to Codex CLI in future). manager.ts implements ProviderManager singleton that reads default_provider and default_model from settings, checks per-agent provider_override and model_override, and returns the correct provider instance. lightweight.ts exports lightweightQuery() using query() with haiku model, maxTurns 1, no tools, no persistence.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: The ClaudeAgentSdkProvider uses createSdkMcpServer to build an in-process MCP server per session rather than connecting to the StreamableHTTP endpoint. This is more efficient (no HTTP roundtrip) and is the SDK's recommended pattern for in-process tool servers. The Codex provider is a placeholder that returns a session_error — the OpenAI Codex CLI integration requires separate research.
+Issues encountered: The @anthropic-ai/claude-code package is the CLI binary, not the SDK library. The correct SDK package is @anthropic-ai/claude-agent-sdk. SDKResultMessage type narrowing caused TS errors when accessing error-specific fields — resolved with a type assertion.
+Notes for the next agent: Import providerManager from ./providers/manager.js. Call providerManager.getProvider(agentId) and providerManager.getModel(agentId) to get the right provider and model. Spawn sessions with provider.spawnSession(config). Iterate session.events async to get SessionEvents. Call provider.interruptSession(sessionId) or session.abort() to stop. For lightweight LLM calls (summaries, briefings), import lightweightQuery from ./providers/lightweight.js. The ClaudeAgentSdkProvider builds per-session in-process MCP servers with tool permission checks baked in.
 
 Phase 3.1 — Agent Management and Hiring
 
