@@ -7,3 +7,5 @@ dist/
 *.db-wal
 *.sqlite
 *.sqlite3
+TODO.md
+*.tsbuildinfo
