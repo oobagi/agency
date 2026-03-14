@@ -71,6 +71,25 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  if (url === '/api/sim/set-time' && method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const simTime = body.simTime;
+      if (typeof simTime !== 'string') {
+        return json(res, { error: 'simTime (ISO 8601) is required' }, 400);
+      }
+      const t = new Date(simTime);
+      if (isNaN(t.getTime())) {
+        return json(res, { error: 'Invalid ISO 8601 date' }, 400);
+      }
+      clock.setTime(t);
+      return json(res, { simTime: clock.now().toISOString() });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: message }, 400);
+    }
+  }
+
   if (url === '/api/sim/pause' && method === 'POST') {
     clock.pause();
     return json(res, { paused: true });

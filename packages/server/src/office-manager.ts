@@ -282,11 +282,17 @@ function buildOMContext(omId: string): string {
       userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n'));
   }
 
-  // Available personas (for hiring)
-  const personaCount = (
-    db.prepare('SELECT COUNT(*) as cnt FROM personas').get() as { cnt: number }
-  ).cnt;
-  sections.push(`\n## Available Personas\n${personaCount} personas available for hiring. Use hire_agent with a persona_id.`);
+  // Available personas (for hiring) — include IDs so the OM can actually hire
+  const personas = db
+    .prepare('SELECT id, name, specialties FROM personas ORDER BY name LIMIT 30')
+    .all() as Array<{ id: string; name: string; specialties: string }>;
+  if (personas.length > 0) {
+    sections.push('## Available Personas for Hiring\nUse hire_agent with the persona_id value:\n' +
+      personas.map((p) => {
+        const specs = JSON.parse(p.specialties) as string[];
+        return `- **${p.name}** (persona_id: \`${p.id}\`) — specialties: ${specs.join(', ') || 'general'}`;
+      }).join('\n'));
+  }
 
   // Available tool names
   const generalTools = Object.entries(TOOL_DEFINITIONS)

@@ -1,7 +1,7 @@
 import { query, createSdkMcpServer, tool as sdkTool } from '@anthropic-ai/claude-agent-sdk';
 import type { Query, SDKMessage, McpServerConfig } from '@anthropic-ai/claude-agent-sdk';
 import crypto from 'node:crypto';
-import { z } from 'zod/v4';
+import { z as z3 } from 'zod';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS, validateAgentPermission } from '../mcp/tool-registry.js';
 import type {
   AgenticProvider,
@@ -16,6 +16,47 @@ import type {
 
 // The MCP server name used in tool prefixes (mcp__agency__<tool_name>)
 const MCP_SERVER_NAME = 'agency';
+
+/**
+ * Build a Zod v3 shape from a Zod v4 schema.
+ * The Agent SDK's tool() helper requires Zod v3 (with safeParseAsync).
+ * We extract field names and types from the v4 schema and rebuild in v3.
+ */
+function buildZod3Shape(schema: unknown): Record<string, z3.ZodTypeAny> {
+  // Try to extract shape from a ZodObject-like schema
+  const s = schema as { shape?: Record<string, { _def?: { typeName?: string }; description?: string }> };
+  if (!s?.shape) return {};
+
+  const v3Shape: Record<string, z3.ZodTypeAny> = {};
+  for (const [key, fieldSchema] of Object.entries(s.shape)) {
+    const typeName = fieldSchema?._def?.typeName ?? '';
+    const desc = fieldSchema?.description;
+
+    // Map common Zod v4 types to Zod v3 equivalents
+    let v3Field: z3.ZodTypeAny;
+    if (typeName.includes('Enum')) {
+      v3Field = z3.string();
+    } else if (typeName.includes('Number') || typeName.includes('Int')) {
+      v3Field = z3.number();
+    } else if (typeName.includes('Boolean')) {
+      v3Field = z3.boolean();
+    } else if (typeName.includes('Record') || typeName.includes('Object')) {
+      v3Field = z3.record(z3.string(), z3.unknown());
+    } else {
+      v3Field = z3.string();
+    }
+
+    // Check if the field is optional in v4
+    if (typeName.includes('Optional')) {
+      v3Field = z3.string().optional();
+    }
+
+    if (desc) v3Field = v3Field.describe(desc) as z3.ZodTypeAny;
+    v3Shape[key] = v3Field;
+  }
+
+  return v3Shape;
+}
 
 export class ClaudeAgentSdkProvider implements AgenticProvider {
   readonly name = 'claude_agent_sdk';
@@ -85,15 +126,14 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
       .filter(Boolean) as Array<{ name: string; def: (typeof TOOL_DEFINITIONS)[string] }>;
 
     const tools = toolDefs.map(({ name, def }) => {
-      // Extract the ZodRawShape from our z.object() schemas for the SDK's tool() helper
-      const shape = def.inputSchema instanceof z.ZodObject
-        ? (def.inputSchema as unknown as { shape: Record<string, unknown> }).shape
-        : {};
+      // The Agent SDK's tool() uses Zod v3 internally (safeParseAsync).
+      // Our tool registry uses Zod v4, so we rebuild a Zod v3 passthrough schema.
+      const v3Shape = buildZod3Shape(def.inputSchema);
 
       return sdkTool(
         name,
         def.description,
-        shape as Record<string, never>,
+        v3Shape,
         async (args: Record<string, unknown>) => {
           // Permission check for manager-only tools
           if (MANAGER_ONLY_TOOLS.has(name)) {
@@ -105,20 +145,10 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
             }
           }
 
-          // Stub handler — real implementations replace this in later phases
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify({
-                  tool: name,
-                  status: 'stub',
-                  message: `Tool "${name}" called successfully (stub).`,
-                  args,
-                }),
-              },
-            ],
-          };
+          // Delegate to the MCP server handler registry
+          // (which routes to real handlers or stubs via mcp/server.ts)
+          const handler = this.getToolHandler(name, config.agentId);
+          return handler(args);
         },
       );
     });
@@ -128,6 +158,21 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
       version: '0.1.0',
       tools,
     });
+  }
+
+  private getToolHandler(
+    toolName: string,
+    agentId: string,
+  ): (args: Record<string, unknown>) => Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+    return async (args: Record<string, unknown>) => {
+      const { dispatchToolCall } = await import('../mcp/server.js');
+      const result = await dispatchToolCall(toolName, { ...args, _agent_id: agentId });
+      // Narrow content to text-only blocks for the SDK tool interface
+      const textContent = result.content
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => ({ type: 'text' as const, text: b.text }));
+      return { content: textContent };
+    };
   }
 
   private async *streamToEvents(

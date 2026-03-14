@@ -157,6 +157,58 @@ function createStubHandler(
   };
 }
 
+// ---------- Tool dispatch (used by ClaudeAgentSdkProvider) ----------
+
+export async function dispatchToolCall(
+  toolName: string,
+  args: Record<string, unknown>,
+): Promise<CallToolResult> {
+  const handler = REAL_HANDLERS[toolName];
+  const agentId = args._agent_id as string | undefined;
+
+  // Permission check for manager-only tools
+  if (MANAGER_ONLY_TOOLS.has(toolName)) {
+    if (!agentId) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: `Permission denied: tool "${toolName}" requires a manager role. No agent identity provided.`,
+          },
+        ],
+      };
+    }
+    const check = validateAgentPermission(agentId, toolName);
+    if (!check.allowed) {
+      return {
+        isError: true,
+        content: [{ type: 'text', text: `Permission denied: ${check.reason}` }],
+      };
+    }
+  }
+
+  if (handler) {
+    return handler(args, agentId ?? '', simNowFn);
+  }
+
+  // Stub fallback
+  console.log(`[MCP stub] ${toolName}(${JSON.stringify(args)})`);
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          tool: toolName,
+          status: 'stub',
+          message: `Tool "${toolName}" called successfully (stub — not yet implemented).`,
+          args,
+        }),
+      },
+    ],
+  };
+}
+
 // ---------- StreamableHTTP session management ----------
 
 const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>();
