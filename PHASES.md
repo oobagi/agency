@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.3 — Chat Bubbles with Proximity Display
-
-Goal: show speech bubbles above agents when they speak, visible only when the camera is close enough.
-
-Context: depends on Phase 7.1 for agent rendering and Phase 4.4 for speak events.
-
-What to build: subscribe to speak events via WebSocket. When an agent speaks, display a chat bubble above their capsule. The bubble shows the message text, truncated to a reasonable length with full text available on hover. Bubbles fade out after a configurable duration in sim time. Only render bubbles for agents currently within the camera's view frustum. Optionally, reduce bubble detail or hide them when the camera is zoomed out far enough to prevent visual clutter. Ensure bubbles are positioned using Drei's Html component so they face the camera (billboard behavior).
-
-Out of scope: message filtering, the Conversations panel.
-
-Acceptance criteria: when an agent speaks, a chat bubble appears above them in the viewport. Bubbles display the message text. Bubbles disappear after a sim-time duration. Bubbles use billboard rendering to always face the camera.
-
-Handoff: the viewport now shows both movement and communication visually.
-
 Phase 7.4 — Conversations Panel
 
 Goal: build the Conversations panel showing all office-wide conversation history.

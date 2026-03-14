@@ -2,7 +2,7 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-Completed phases (1.0 through 7.2) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
+Completed phases (1.0 through 7.3) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
 
 Key facts from completed phases:
 
@@ -40,15 +40,8 @@ Key facts from completed phases:
 - SidePanel: click agent to open right panel with Chat Log, Sessions, Details tabs
 - Chat Log tab has send input; Sessions tab shows tool calls and live updates; Stop button interrupts
 - onPointerMissed on Canvas closes the panel; selected capsule glows with emissive
-
-Phase 7.3 — Chat Bubbles with Proximity Display
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- Chat bubbles appear above agents on speak events, truncated to 80 chars, full on hover
+- Bubbles fade out after 6s with opacity transition, one bubble per agent at a time
 
 Phase 7.4 — Conversations Panel
 

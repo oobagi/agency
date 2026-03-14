@@ -199,3 +199,12 @@ What was skipped or deferred: Nothing.
 Deviations from the spec and why: None.
 Issues encountered: ChatLog interface needed index signature for speaker_name field returned by server JOIN query.
 Notes for the next agent: SidePanel subscribes to WebSocket for live session events. The subscribe pattern from useWebSocket is used. Chat input sends to POST /api/agents/:id/messages. The panel auto-closes on background click via onPointerMissed.
+
+Phase 7.3 — Chat Bubbles with Proximity Display
+
+Date completed: 2026-03-13
+What was built: Speech bubbles above agent capsules when they speak. (1) useChatBubbles hook: subscribes to WebSocket speak events, tracks active bubbles per agent (one at a time — new message replaces old), auto-expires after 6s via setInterval cleanup. (2) ChatBubbleLayer component: renders bubbles above agent positions using Drei Html with distanceFactor=15 (scales down when camera is far). Truncates message to 80 chars with full text on hover via title attribute. Opacity fades in the last 30% of duration. (3) Wired into OfficeScene and App.tsx via chatBubbles prop.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: Used real-time duration (6s) instead of sim-time for bubble expiry — simpler and provides consistent UX regardless of sim speed. Used distanceFactor on Html for distance-based scaling instead of view frustum culling — achieves the same visual declutter effect with less complexity.
+Issues encountered: None.
+Notes for the next agent: useChatBubbles returns ChatBubble[] with agentId, message, expiry timestamps. ChatBubbleLayer positions bubbles at agent.targetX/targetZ. The viewport now shows both movement and communication visually.

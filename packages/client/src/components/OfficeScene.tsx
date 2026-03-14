@@ -4,12 +4,15 @@ import { OfficeFloor } from './OfficeFloor';
 import { OfficeWalls } from './OfficeWalls';
 import { OfficeFurniture } from './OfficeFurniture';
 import { AgentLayer } from './AgentLayer';
+import { ChatBubbleLayer } from './ChatBubbleLayer';
 import type { OfficeLayout } from '../hooks/useOfficeLayout';
 import type { AgentRenderState } from '../hooks/useAgents';
+import type { ChatBubble } from '../hooks/useChatBubbles';
 
 interface OfficeSceneProps {
   layout: OfficeLayout;
   agents: Map<string, AgentRenderState>;
+  chatBubbles: ChatBubble[];
   selectedAgentId: string | null;
   onAgentClick: (agentId: string) => void;
   onBackgroundClick: () => void;
@@ -18,6 +21,7 @@ interface OfficeSceneProps {
 export function OfficeScene({
   layout,
   agents,
+  chatBubbles,
   selectedAgentId,
   onAgentClick,
   onBackgroundClick,
@@ -48,6 +52,9 @@ export function OfficeScene({
 
       {/* Agents */}
       <AgentLayer agents={agents} selectedAgentId={selectedAgentId} onAgentClick={onAgentClick} />
+
+      {/* Chat bubbles */}
+      <ChatBubbleLayer bubbles={chatBubbles} agents={agents} />
 
       {/* Grid helper for spatial reference */}
       <gridHelper args={[60, 30, '#333355', '#222244']} position={[0, 0.01, 0]} />

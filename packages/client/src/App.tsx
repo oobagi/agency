@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOfficeLayout } from './hooks/useOfficeLayout';
 import { useAgents } from './hooks/useAgents';
+import { useChatBubbles } from './hooks/useChatBubbles';
 import { OfficeScene } from './components/OfficeScene';
 import { HUD } from './components/HUD';
 import { SidePanel } from './components/SidePanel';
@@ -31,6 +32,7 @@ export function App() {
   const { connected, simState, subscribe } = useWebSocket();
   const { data: layout, error } = useOfficeLayout();
   const agents = useAgents(subscribe);
+  const chatBubbles = useChatBubbles(subscribe);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   const handleAgentClick = useCallback((agentId: string) => {
@@ -59,6 +61,7 @@ export function App() {
       <OfficeScene
         layout={layout}
         agents={agents}
+        chatBubbles={chatBubbles}
         selectedAgentId={selectedAgentId}
         onAgentClick={handleAgentClick}
         onBackgroundClick={handleClose}
