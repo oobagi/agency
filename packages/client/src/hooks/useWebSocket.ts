@@ -33,6 +33,14 @@ export type WSMessage =
       participant_names: string;
       first_message: string;
       sim_time_start: string;
+    }
+  | {
+      type: 'activity';
+      category: string;
+      agentId: string;
+      agentName: string;
+      description: string;
+      simTime: string;
     };
 
 type MessageHandler = (msg: WSMessage) => void;

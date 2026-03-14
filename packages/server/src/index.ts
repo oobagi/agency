@@ -62,6 +62,7 @@ import {
 } from './blockers.js';
 import { setHungDetectorSimClock, processHungSessionChecks } from './hung-session-detector.js';
 import { setMeetingSimClock, initMeetingSystem } from './meetings.js';
+import { setActivityBroadcast, broadcastActivity } from './state-machine.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -414,6 +415,16 @@ setSessionBroadcast((agentId: string, event: SessionEvent) => {
       client.send(message);
     }
   }
+
+  // Also broadcast as activity event
+  const evt = event as unknown as { type: string; data?: { toolName?: string } };
+  if (evt.type === 'tool_call_start') {
+    broadcastActivity('tool', agentId, `called ${evt.data?.toolName}`, new Date().toISOString());
+  } else if (evt.type === 'session_complete') {
+    broadcastActivity('session', agentId, 'session completed', new Date().toISOString());
+  } else if (evt.type === 'session_error') {
+    broadcastActivity('error', agentId, 'session errored', new Date().toISOString());
+  }
 });
 
 wss.on('connection', (ws) => {
@@ -468,6 +479,16 @@ setConversationBroadcast((data) => {
   }
 });
 
+// ── Activity broadcast (state changes, events → WebSocket clients) ──
+setActivityBroadcast((data) => {
+  const message = JSON.stringify({ type: 'activity', ...data });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
 // ── Blocker broadcast (user-facing blockers → WebSocket clients) ──
 setBlockerBroadcast((data) => {
   const message = JSON.stringify({ type: 'blocker_user_facing', ...data });
@@ -475,6 +496,16 @@ setBlockerBroadcast((data) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }
+  }
+  // Also broadcast as activity
+  const d = data as { agentId?: string; description?: string };
+  if (d.agentId) {
+    broadcastActivity(
+      'blocker',
+      d.agentId,
+      d.description ?? 'blocker escalated',
+      new Date().toISOString(),
+    );
   }
 });
 

@@ -1,6 +1,41 @@
 import { getDb } from './db.js';
 import { onAgentStateChange } from './team-manager.js';
 
+// ── Activity broadcast (state changes → WebSocket clients) ─────────
+
+type ActivityBroadcastFn = (data: {
+  category: string;
+  agentId: string;
+  agentName: string;
+  description: string;
+  simTime: string;
+}) => void;
+
+let broadcastActivityFn: ActivityBroadcastFn = () => {};
+
+export function setActivityBroadcast(fn: ActivityBroadcastFn): void {
+  broadcastActivityFn = fn;
+}
+
+export function broadcastActivity(
+  category: string,
+  agentId: string,
+  description: string,
+  simTime: string,
+): void {
+  const db = getDb();
+  const agent = db.prepare('SELECT name FROM agents WHERE id = ?').get(agentId) as
+    | { name: string }
+    | undefined;
+  broadcastActivityFn({
+    category,
+    agentId,
+    agentName: agent?.name ?? 'Unknown',
+    description,
+    simTime,
+  });
+}
+
 // ── Agent states ───────────────────────────────────────────────────
 
 export type AgentState =
@@ -127,6 +162,18 @@ export function transitionAgentState(
   );
 
   onAgentStateChange(agentId, oldState, newState);
+
+  // Broadcast state change as activity event
+  const agentRow = db.prepare('SELECT name FROM agents WHERE id = ?').get(agentId) as
+    | { name: string }
+    | undefined;
+  broadcastActivityFn({
+    category: 'state',
+    agentId,
+    agentName: agentRow?.name ?? 'Unknown',
+    description: `${oldState} → ${newState}`,
+    simTime: now,
+  });
 
   return { success: true };
 }

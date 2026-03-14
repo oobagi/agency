@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.6 — Schedule Panel and Activity Log
-
-Goal: add a schedule panel showing upcoming sim events and a terminal-style activity log.
-
-Context: depends on Phase 3.3 for scheduled jobs data and Phase 3.2 for session events.
-
-What to build: add a Schedule panel accessible from the UI. It shows a timeline view of the current sim day's events: agent arrivals, meetings, lunch breaks, departures, Office Manager sessions, and any custom scheduled events. Events are color-coded by type. Upcoming events are highlighted. Past events are dimmed. Add a terminal-style Activity Log panel that shows a scrolling feed of simulation events in real time: agent state changes, session starts and completions, tool calls, PR events, task completions, blocker reports, and escalations. Each log entry has a sim timestamp, the agent involved, and a short description. The log subscribes to a WebSocket channel for simulation events.
-
-Out of scope: filtering the activity log by agent or type (a nice-to-have for later).
-
-Acceptance criteria: the schedule panel shows today's scheduled events as a timeline. The activity log streams simulation events in real time. Both panels update correctly as sim time advances.
-
-Handoff: the user now has timeline and log-based views of simulation activity.
-
 Phase 7.7 — Blocked Agent Modal
 
 Goal: implement the guided resolution modal for blocked agents.

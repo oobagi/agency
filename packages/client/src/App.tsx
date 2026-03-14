@@ -8,6 +8,7 @@ import { HUD } from './components/HUD';
 import { SidePanel } from './components/SidePanel';
 import { ConversationsPanel } from './components/ConversationsPanel';
 import { DiffViewerPanel } from './components/DiffViewerPanel';
+import { SchedulePanel } from './components/SchedulePanel';
 
 const styles = {
   root: {
@@ -30,14 +31,15 @@ const styles = {
   },
 };
 
+type LeftPanel = 'conversations' | 'projects' | 'schedule' | null;
+
 export function App() {
   const { connected, simState, subscribe } = useWebSocket();
   const { data: layout, error } = useOfficeLayout();
   const agents = useAgents(subscribe);
   const chatBubbles = useChatBubbles(subscribe);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [showConversations, setShowConversations] = useState(false);
-  const [showProjects, setShowProjects] = useState(false);
+  const [leftPanel, setLeftPanel] = useState<LeftPanel>(null);
 
   const handleAgentClick = useCallback((agentId: string) => {
     setSelectedAgentId(agentId);
@@ -47,18 +49,8 @@ export function App() {
     setSelectedAgentId(null);
   }, []);
 
-  const toggleConversations = useCallback(() => {
-    setShowConversations((prev) => {
-      if (!prev) setShowProjects(false);
-      return !prev;
-    });
-  }, []);
-
-  const toggleProjects = useCallback(() => {
-    setShowProjects((prev) => {
-      if (!prev) setShowConversations(false);
-      return !prev;
-    });
+  const togglePanel = useCallback((panel: LeftPanel) => {
+    setLeftPanel((prev) => (prev === panel ? null : panel));
   }, []);
 
   if (error) {
@@ -78,10 +70,12 @@ export function App() {
       <HUD
         simState={simState}
         connected={connected}
-        showConversations={showConversations}
-        onToggleConversations={toggleConversations}
-        showProjects={showProjects}
-        onToggleProjects={toggleProjects}
+        showConversations={leftPanel === 'conversations'}
+        onToggleConversations={() => togglePanel('conversations')}
+        showProjects={leftPanel === 'projects'}
+        onToggleProjects={() => togglePanel('projects')}
+        showSchedule={leftPanel === 'schedule'}
+        onToggleSchedule={() => togglePanel('schedule')}
       />
       <OfficeScene
         layout={layout}
@@ -91,10 +85,17 @@ export function App() {
         onAgentClick={handleAgentClick}
         onBackgroundClick={handleClose}
       />
-      {showConversations && (
-        <ConversationsPanel onClose={toggleConversations} subscribe={subscribe} />
+      {leftPanel === 'conversations' && (
+        <ConversationsPanel onClose={() => togglePanel('conversations')} subscribe={subscribe} />
       )}
-      {showProjects && <DiffViewerPanel onClose={toggleProjects} />}
+      {leftPanel === 'projects' && <DiffViewerPanel onClose={() => togglePanel('projects')} />}
+      {leftPanel === 'schedule' && (
+        <SchedulePanel
+          onClose={() => togglePanel('schedule')}
+          subscribe={subscribe}
+          simTime={simState.simTime}
+        />
+      )}
       {selectedAgentId && (
         <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
       )}

@@ -622,6 +622,38 @@ async function main() {
   assert(typeof prDetail!.diff === 'string' || prDetail!.diff === null, 'PR detail has diff field');
   assert(prDetail!.pr !== undefined, 'PR detail has pr field');
 
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.6: Schedule & Activity Log
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.6: Schedule & Activity Log ===');
+
+  const { getScheduledJobs, getJobQueue } = await import('../src/scheduler.js');
+
+  // Scheduled jobs exist (OM has morning_planning, midday_check, eod_review + daily schedules)
+  const allJobs = getScheduledJobs();
+  assert(allJobs.length > 0, 'Scheduled jobs exist');
+
+  // OM-specific scheduled jobs
+  const omJobs = getScheduledJobs(omId);
+  assert(omJobs.length >= 3, 'OM has at least 3 scheduled jobs');
+
+  // Job queue endpoint
+  const queue = getJobQueue();
+  assert(Array.isArray(queue), 'getJobQueue returns an array');
+
+  // Activity broadcast function exists
+  const { setActivityBroadcast, broadcastActivity } = await import('../src/state-machine.js');
+  assert(typeof setActivityBroadcast === 'function', 'setActivityBroadcast is exported');
+  assert(typeof broadcastActivity === 'function', 'broadcastActivity is exported');
+
+  // broadcastActivity can be called without error
+  let activityReceived = false;
+  setActivityBroadcast(() => {
+    activityReceived = true;
+  });
+  broadcastActivity('test', omId, 'test event', new Date().toISOString());
+  assert(activityReceived, 'broadcastActivity fires the callback');
+
   console.log('\n=== Delete project ===');
   const del = await call('delete_project', { project_id: projectId }, omId);
   assert(!del.isError, 'delete_project succeeds');

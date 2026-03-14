@@ -48,16 +48,10 @@ Key facts from completed phases:
 - Integration tests use dynamic imports to set AGENCY_DB_PATH before db module loads
 - DiffViewerPanel: left-side 520px panel, toggled from HUD "Projects" button
 - GET /api/worktrees/:id/diff and GET /api/worktrees/:id/commits endpoints
-- Left-side panels (Conversations, Projects) are mutually exclusive — opening one closes the other
-
-Phase 7.6 — Schedule Panel and Activity Log
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- Left-side panels (Conversations, Projects, Schedule) are mutually exclusive via LeftPanel union type
+- SchedulePanel: tabbed with Schedule (timeline) and Activity Log (real-time feed)
+- Activity broadcast: setActivityBroadcast/broadcastActivity in state-machine.ts; fires on state transitions, session events, blocker escalations
+- WebSocket 'activity' event: { category, agentId, agentName, description, simTime }
 
 Phase 7.7 — Blocked Agent Modal
 
