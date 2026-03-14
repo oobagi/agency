@@ -2,34 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 5.0 — Memory Compression Pipeline
-
-Goal: implement the memory compression system that summarizes agent activity and stores embeddings for vector retrieval.
-
-Context: depends on Phase 3.2 for session records and Phase 4.2 for context assembly. Install @huggingface/transformers for local embeddings and sqlite-vss for vector search.
-
-What to build: implement the compression job. At task completion and at end of sim day (17:00), the World Server runs a compression job for each agent. The job collects the agent's recent chat logs and session summaries from that sim day, generates a natural language summary using a lightweight LLM call (Agent SDK query with model haiku, maxTurns 1, no tools), embeds the summary using @huggingface/transformers, and stores the embedding in the agent_memory table. Set up sqlite-vss as a virtual table that indexes the embedding column of agent_memory. Update the buildSessionContext function from Phase 4.2 to perform vector similarity search against the current task description and inject the top 3 matching memory chunks into the session context. Implement the trigger_compression MCP tool that Team Managers can call for early compression when context limits are approaching. Implement the context window monitoring: the World Server tracks estimated token counts for active sessions and notifies the Team Manager at 80% threshold. At 95% threshold, force-trigger compression automatically as a safety net.
-
-Out of scope: the checkpoint_agent flow is a simple walk-and-speak handled by the Team Manager's session, not a separate system.
-
-Acceptance criteria: at end of sim day, each agent's activity is summarized and stored with an embedding. Vector similarity search against a task description returns relevant past memories. buildSessionContext now injects real memory chunks instead of stubs. trigger_compression creates a new summary mid-session. Context monitoring alerts at 80% and force-compresses at 95%.
-
-Handoff: agents now have persistent memory across sim days. The daily session initialization from Phase 3.3 can now inject yesterday's compressed summary into the morning briefing.
-
-Phase 5.1 — Blocker Detection and Escalation Chain
-
-Goal: implement the full escalation chain from agent through managers to user.
-
-Context: depends on Phase 4.1 for Team Manager loops and Phase 4.0 for Office Manager loops. Per DESIGN_DOC.md: Agent → Team Manager → Office Manager → User.
-
-What to build: implement the report_blocker MCP tool fully. When an agent calls report_blocker, the handler sets the agent to Blocked state, records the blocker details in the task or a new blockers column, and triggers the Team Manager. The Team Manager evaluates the blocker during their session. If the Team Manager can resolve it (e.g., reassigning the task, providing guidance), they do so and the agent resumes. If the Team Manager cannot resolve it, they physically walk to the Office Manager and escalate. The Office Manager evaluates and acts. If the Office Manager cannot resolve it (e.g., missing CLI auth, missing system permissions), the blocker is marked as user_facing and a notification is sent to the UI via WebSocket. The notification creates the blocked agent visual indicator (data only at this phase, the UI renders it later). Implement hung session detection: if an agent session runs for a configurable sim-time duration (default 30 sim minutes) without a tool call completing, the World Server auto-interrupts it, sets outcome to hung, and transitions the agent to Blocked.
-
-Out of scope: the blocked agent modal UI (Phase 7.7), visual indicators in 3D (UI phase).
-
-Acceptance criteria: report_blocker transitions agent to Blocked and triggers Team Manager. A blocker the Team Manager can handle is resolved without reaching the Office Manager. A blocker the Team Manager cannot handle is escalated physically to the Office Manager. An unresolvable blocker is surfaced to the user via WebSocket. Hung sessions are detected and the agent is set to Blocked automatically.
-
-Handoff: the full autonomous loop is now operational. Agents work, blockers escalate, managers intervene. Phase 6.0 adds meetings and Phase 7.x adds all UI.
-
 Phase 6.0 — Meeting System with Physical Arrival Gating
 
 Goal: implement meetings that require all participants to physically arrive before the meeting begins.
