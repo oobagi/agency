@@ -331,4 +331,22 @@ function mcpError(message: string) {
   };
 }
 
+// ── Retarget a walking agent ────────────────────────────────────────
+// Changes the destination and arrival callback for an agent already in
+// the activeMovements map without going through a state transition.
+
+export function retargetWalking(
+  agentId: string,
+  targetX: number,
+  targetZ: number,
+  onArrival?: () => void,
+): boolean {
+  const existing = activeMovements.get(agentId);
+  if (!existing) return false;
+  existing.targetX = targetX;
+  existing.targetZ = targetZ;
+  existing.onArrival = onArrival;
+  return true;
+}
+
 export { PROXIMITY_RADIUS, MOVEMENT_SPEED };

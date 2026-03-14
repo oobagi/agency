@@ -2,7 +2,7 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-Completed phases (1.0 through 5.1) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
+Completed phases (1.0 through 6.0) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
 
 Key facts from completed phases:
 
@@ -20,19 +20,15 @@ Key facts from completed phases:
 - Hung session detector auto-interrupts after 30 sim minutes without tool call, transitions to Blocked
 - User-facing blockers broadcast via WebSocket; REST endpoint POST /api/blockers/:id/resolve for user resolution
 - startWalking() exported from movement.ts with optional onArrival callback
+- retargetWalking() can redirect a walking agent to a new destination without state transition
 - speak rejects if no agents within proximity; send_to_manager auto-walks then delivers
 - Task lifecycle: pending → in_progress → completed or blocked
 - Git operations use simple-git; create_project inits real repos, merge_pull_request does real merges
 - Hard constraint 7 enforced: agents cannot review or merge their own PRs
-
-Phase 6.0 — Meeting System with Physical Arrival Gating
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- Meeting system: schedule_event with job_type "meeting" triggers physical arrival gating
+- Meeting rooms seeded via migration 004 (Alpha Room, Beta Room, Gamma Room)
+- SessionRecorder.onComplete() callback fires when session ends (used by meeting system)
+- TM persona includes meeting scheduling instructions and meeting room list in context
 
 Phase 7.0 — 3D Office Viewport
 

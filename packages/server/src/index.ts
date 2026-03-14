@@ -58,6 +58,7 @@ import {
   resolveBlocker,
 } from './blockers.js';
 import { setHungDetectorSimClock, processHungSessionChecks } from './hung-session-detector.js';
+import { setMeetingSimClock, initMeetingSystem } from './meetings.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -77,6 +78,7 @@ setMovementSimClock(
 setCommunicationSimClock(() => clock.now());
 setContextMonitorSimClock(() => clock.now());
 setHungDetectorSimClock(() => clock.now());
+setMeetingSimClock(() => clock.now());
 
 // Wire context monitor alert → Team Manager blocker trigger
 setContextAlertCallback((teamId, agentId, agentName, pct) => {
@@ -448,6 +450,9 @@ clock.onTick((simTime) => {
     }
   }
 });
+
+// Initialize meeting system (registers the 'meeting' job handler)
+initMeetingSystem();
 
 // Initialize the Office Manager (creates if not exists, registers scheduled jobs)
 initOfficeManager();

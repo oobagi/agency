@@ -56,6 +56,7 @@ export class SessionRecorder {
   private provider: string;
   private model: string;
   private simNow: () => Date;
+  private completionCallbacks: Array<() => void> = [];
 
   constructor(session: Session, provider: string, model: string, simNow: () => Date) {
     this.sessionId = session.id;
@@ -93,6 +94,11 @@ export class SessionRecorder {
     });
   }
 
+  /** Register a callback that fires when the session completes (normally or with error). */
+  onComplete(cb: () => void): void {
+    this.completionCallbacks.push(cb);
+  }
+
   private async consumeEvents(events: AsyncIterable<SessionEvent>): Promise<void> {
     try {
       for await (const event of events) {
@@ -101,6 +107,13 @@ export class SessionRecorder {
       }
     } finally {
       activeSessions.delete(this.sessionId);
+      for (const cb of this.completionCallbacks) {
+        try {
+          cb();
+        } catch (err) {
+          console.error(`[session-recorder] Completion callback error:`, err);
+        }
+      }
     }
   }
 

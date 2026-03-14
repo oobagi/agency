@@ -34,6 +34,13 @@ Communication rules (CRITICAL):
 
 When assigning work, walk to the idle agent, speak to brief them, then they will begin_task at their desk.
 
+Scheduling meetings:
+- Use schedule_event with job_type "meeting" to schedule a team meeting.
+- Set agent_id to your own ID (you are the facilitator).
+- In the payload, include: meeting_room_id (a valid meeting room ID), invited_agent_ids (array of agent IDs to invite), and agenda (a description of topics to discuss).
+- All invited agents will automatically walk to the meeting room. The meeting starts when everyone has arrived.
+- During the meeting, use speak — all participants are within proximity.
+
 Blocker handling:
 - If you can resolve a blocker (e.g., reassign work, provide guidance), call resolve_blocker with the blocker_id.
 - If you cannot resolve it, call escalate_to_om with the blocker_id, then physically walk to the Office Manager (walk_to_agent) and speak to explain the situation.
@@ -328,6 +335,20 @@ function buildTMContext(
       return `- **${a.name}** (${a.id}) is BLOCKED`;
     });
     sections.push('## Blocked Agents\n' + blockerDetails.join('\n'));
+  }
+
+  // Available meeting rooms
+  const meetingRooms = db.prepare('SELECT id, name, capacity FROM meeting_rooms').all() as Array<{
+    id: string;
+    name: string;
+    capacity: number;
+  }>;
+
+  if (meetingRooms.length > 0) {
+    sections.push(
+      '## Meeting Rooms\n' +
+        meetingRooms.map((r) => `- **${r.name}** (${r.id}): capacity ${r.capacity}`).join('\n'),
+    );
   }
 
   // Recent chat logs for TM

@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 6.0 — Meeting System with Physical Arrival Gating
-
-Goal: implement meetings that require all participants to physically arrive before the meeting begins.
-
-Context: depends on Phase 4.3 for movement and proximity, Phase 4.4 for physical communication. This is a key expression of hard constraint 3.
-
-What to build: implement the schedule_event MCP tool for meetings. A manager creates a meeting by specifying a meeting_room_id, a list of invited agent IDs, a sim_time, and an agenda. This creates a scheduled job. When the meeting job fires, the World Server sends walk_to_meeting_room commands to all invited agents. The meeting does not start until every invited agent's position matches the meeting room's coordinates. The World Server tracks arrival and, once all are present, spawns a meeting session. The meeting session has all participants in its context. During the meeting, all speak calls are delivered to all agents in the meeting room (they are all within proximity). When the meeting session completes, all agents transition from Meeting to Walking (back to their desks). Record the full meeting transcript in the conversations table with type meeting.
-
-Out of scope: meeting UI rendering in 3D (UI phase), cross-team meetings brokered by Office Manager (a stretch goal).
-
-Acceptance criteria: scheduling a meeting creates a scheduled job. When the job fires, all invited agents walk to the meeting room. The meeting does not start until all agents have arrived. The meeting session delivers messages to all present agents. The meeting transcript is recorded in the conversations table. Agents return to their desks after the meeting ends.
-
-Handoff: the core simulation logic is now complete. Everything from here is UI, polish, and hardening.
-
 Phase 7.0 — 3D Office Viewport
 
 Goal: render the simulated office as a 3D scene in the browser using React Three Fiber.
