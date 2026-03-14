@@ -1,8 +1,10 @@
+import { useState, useCallback } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOfficeLayout } from './hooks/useOfficeLayout';
 import { useAgents } from './hooks/useAgents';
 import { OfficeScene } from './components/OfficeScene';
 import { HUD } from './components/HUD';
+import { SidePanel } from './components/SidePanel';
 
 const styles = {
   root: {
@@ -29,6 +31,15 @@ export function App() {
   const { connected, simState, subscribe } = useWebSocket();
   const { data: layout, error } = useOfficeLayout();
   const agents = useAgents(subscribe);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  const handleAgentClick = useCallback((agentId: string) => {
+    setSelectedAgentId(agentId);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setSelectedAgentId(null);
+  }, []);
 
   if (error) {
     return (
@@ -45,7 +56,16 @@ export function App() {
   return (
     <div style={styles.root}>
       <HUD simState={simState} connected={connected} />
-      <OfficeScene layout={layout} agents={agents} />
+      <OfficeScene
+        layout={layout}
+        agents={agents}
+        selectedAgentId={selectedAgentId}
+        onAgentClick={handleAgentClick}
+        onBackgroundClick={handleClose}
+      />
+      {selectedAgentId && (
+        <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
+      )}
     </div>
   );
 }

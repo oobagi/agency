@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.2 — Agent Click Interaction and Side Panel
-
-Goal: implement clicking an agent to open a side panel with their information, chat log, sessions, and a text input.
-
-Context: depends on Phase 7.1 for agent capsules, Phase 3.2 for session data, and Phase 4.4 for conversation data.
-
-What to build: add raycasting click detection on agent capsules using React Three Fiber's onClick. When an agent is clicked, open a side panel on the right side of the screen. The panel displays: agent name, role (Office Manager / Team Manager / Agent), team name and color, current state, current task. Below this, a tabbed interface with three tabs. Chat Log tab: shows the agent's chat log from GET /api/agents/:id/chat-logs, with a text input at the bottom for the user to send a message via POST /api/agents/:id/messages. Sessions tab: shows all sessions grouped by sim day from GET /api/agents/:id/sessions, each expandable to show tool calls. Active sessions show live tool call updates via WebSocket with loading animations. A Stop button appears during active sessions, calling POST /api/sessions/:id/interrupt. Details tab: shows the agent's persona, specialties, hire date, and desk assignment. Clicking the viewport background closes the side panel.
-
-Out of scope: the Conversations panel (Phase 7.4), the blocked agent modal (Phase 7.7).
-
-Acceptance criteria: clicking an agent in the viewport opens a side panel. The panel shows correct agent information. The Chat Log tab displays messages and allows the user to send new messages. The Sessions tab shows past sessions with expandable tool calls. Active sessions stream live tool calls. The Stop button interrupts an active session. Closing the panel deselects the agent.
-
-Handoff: the core interaction model is now live. The user can observe and communicate with agents.
-
 Phase 7.3 — Chat Bubbles with Proximity Display
 
 Goal: show speech bubbles above agents when they speak, visible only when the camera is close enough.

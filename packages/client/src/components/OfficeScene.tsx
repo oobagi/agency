@@ -10,13 +10,23 @@ import type { AgentRenderState } from '../hooks/useAgents';
 interface OfficeSceneProps {
   layout: OfficeLayout;
   agents: Map<string, AgentRenderState>;
+  selectedAgentId: string | null;
+  onAgentClick: (agentId: string) => void;
+  onBackgroundClick: () => void;
 }
 
-export function OfficeScene({ layout, agents }: OfficeSceneProps) {
+export function OfficeScene({
+  layout,
+  agents,
+  selectedAgentId,
+  onAgentClick,
+  onBackgroundClick,
+}: OfficeSceneProps) {
   return (
     <Canvas
       camera={{ position: [30, 25, 30], fov: 50, near: 0.1, far: 200 }}
       style={{ width: '100%', height: '100%', background: '#1a1a2e' }}
+      onPointerMissed={onBackgroundClick}
     >
       {/* Lighting */}
       <ambientLight intensity={0.5} />
@@ -37,7 +47,7 @@ export function OfficeScene({ layout, agents }: OfficeSceneProps) {
       <OfficeFurniture layout={layout} />
 
       {/* Agents */}
-      <AgentLayer agents={agents} />
+      <AgentLayer agents={agents} selectedAgentId={selectedAgentId} onAgentClick={onAgentClick} />
 
       {/* Grid helper for spatial reference */}
       <gridHelper args={[60, 30, '#333355', '#222244']} position={[0, 0.01, 0]} />

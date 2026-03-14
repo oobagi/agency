@@ -6,6 +6,8 @@ import type { AgentRenderState } from '../hooks/useAgents';
 
 interface AgentCapsuleProps {
   agent: AgentRenderState;
+  selected?: boolean;
+  onClick?: (agentId: string) => void;
 }
 
 const LERP_SPEED = 8;
@@ -51,7 +53,7 @@ function getCapsuleColor(agent: AgentRenderState): string {
   return agent.teamColor;
 }
 
-export function AgentCapsule({ agent }: AgentCapsuleProps) {
+export function AgentCapsule({ agent, selected, onClick }: AgentCapsuleProps) {
   const groupRef = useRef<THREE.Group>(null);
   const posRef = useRef(new THREE.Vector3(agent.x, 0, agent.z));
 
@@ -75,9 +77,15 @@ export function AgentCapsule({ agent }: AgentCapsuleProps) {
   return (
     <group ref={groupRef} position={[agent.x, 0, agent.z]}>
       {/* Capsule body */}
-      <mesh position={[0, 0.7, 0]}>
+      <mesh
+        position={[0, 0.7, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.(agent.id);
+        }}
+      >
         <capsuleGeometry args={[0.25, 0.6, 8, 16]} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={color} emissive={selected ? '#4444aa' : '#000000'} />
       </mesh>
 
       {/* Name label + state */}

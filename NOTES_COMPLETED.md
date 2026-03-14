@@ -190,3 +190,12 @@ What was skipped or deferred: Nothing.
 Deviations from the spec and why: Added activity icons per the NOTES.md instruction for Phase 7.1 — floating emojis for desk work tool calls.
 Issues encountered: None.
 Notes for the next agent: AgentCapsule does not yet have onClick — that's Phase 7.2. The useAgents hook returns a Map<string, AgentRenderState>. The subscribe pattern from useWebSocket is used to receive position and session events. Activity icons auto-expire after 3s via a setInterval cleanup.
+
+Phase 7.2 — Agent Click Interaction and Side Panel
+
+Date completed: 2026-03-13
+What was built: Click-to-select agent interaction with a full side panel. (1) AgentCapsule updated with onClick prop (e.stopPropagation to prevent background deselect) and selected state (emissive glow #4444aa). (2) AgentLayer passes selectedAgentId and onAgentClick through. (3) OfficeScene uses onPointerMissed on Canvas to deselect when clicking background. (4) SidePanel component (380px right panel): header shows agent name, role, team with color dot, state, current task. Three tabs: Chat Log (fetches GET /api/agents/:id/chat-logs, send via POST /api/agents/:id/messages, optimistic local append, auto-scroll to bottom), Sessions (fetches GET /api/agents/:id/sessions, expandable to show tool calls via GET /api/sessions/:id, live tool_call_start/complete updates via WebSocket subscription, Stop button calls POST /api/sessions/:id/interrupt for active sessions), Details (role, team, state, desk, hired date, persona excerpt). (5) App.tsx manages selectedAgentId state, passes handlers to OfficeScene and renders SidePanel conditionally. All inline styles per client rules.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: None.
+Issues encountered: ChatLog interface needed index signature for speaker_name field returned by server JOIN query.
+Notes for the next agent: SidePanel subscribes to WebSocket for live session events. The subscribe pattern from useWebSocket is used. Chat input sends to POST /api/agents/:id/messages. The panel auto-closes on background click via onPointerMissed.
