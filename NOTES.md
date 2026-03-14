@@ -40,8 +40,6 @@ Key facts from completed phases:
 
 Phase 7.2 — Agent Click Interaction and Side Panel
 
-Phase 7.2 — Agent Click Interaction and Side Panel
-
 Date completed:
 What was built:
 What was skipped or deferred:
