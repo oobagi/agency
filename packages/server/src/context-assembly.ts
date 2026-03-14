@@ -1,5 +1,6 @@
 import { getDb } from './db.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
+import { searchSimilarMemories } from './memory-compression.js';
 
 // ── Sim clock accessor ─────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ const MAX_CONTEXT_CHARS = 100_000 * 4; // ~100k tokens
 
 // ── Build session context for any agent ────────────────────────────
 
-export function buildSessionContext(agentId: string, taskContext?: string): string {
+export async function buildSessionContext(agentId: string, taskContext?: string): Promise<string> {
   const db = getDb();
   const simTime = simNowFn();
   const sections: string[] = [];
@@ -53,8 +54,10 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
   );
 
   // 3. Current task
+  let currentTaskDescription = '';
   if (taskContext) {
     sections.push(`## Current Task\n${taskContext}`);
+    currentTaskDescription = taskContext;
   } else {
     // Check for in-progress or pending tasks
     const currentTask = db
@@ -65,6 +68,7 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
       sections.push(
         `## Current Task\n**${currentTask.title}** (${currentTask.id})\n${currentTask.description}`,
       );
+      currentTaskDescription = currentTask.description;
     } else {
       const pendingTask = db
         .prepare(
@@ -76,6 +80,7 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
         sections.push(
           `## Queued Task\n**${pendingTask.title}** (${pendingTask.id})\n${pendingTask.description}`,
         );
+        currentTaskDescription = pendingTask.description;
       } else {
         sections.push('## Current Task\nNo tasks assigned. Check in with your Team Manager.');
       }
@@ -110,14 +115,20 @@ export function buildSessionContext(agentId: string, taskContext?: string): stri
     );
   }
 
-  // 5. Memory chunks (top 3 — plain text match for now, vector search in Phase 5.0)
-  const memories = db
-    .prepare(
-      `SELECT content, sim_day FROM agent_memory
-       WHERE agent_id = ?
-       ORDER BY created_at DESC LIMIT 3`,
-    )
-    .all(agentId) as Array<{ content: string; sim_day: string }>;
+  // 5. Memory chunks (top 3 via vector similarity search)
+  let memories: Array<{ content: string; sim_day: string }>;
+  if (currentTaskDescription) {
+    memories = await searchSimilarMemories(agentId, currentTaskDescription, 3);
+  } else {
+    // No task context to match against — fall back to recency
+    memories = db
+      .prepare(
+        `SELECT content, sim_day FROM agent_memory
+         WHERE agent_id = ?
+         ORDER BY created_at DESC LIMIT 3`,
+      )
+      .all(agentId) as Array<{ content: string; sim_day: string }>;
+  }
 
   if (memories.length > 0) {
     sections.push(

@@ -4,3 +4,6 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - better-sqlite3
+  - onnxruntime-node
+  - protobufjs
+  - sharp

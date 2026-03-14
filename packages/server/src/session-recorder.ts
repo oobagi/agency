@@ -8,6 +8,7 @@ import type {
   SessionCompleteData,
   SessionErrorData,
 } from './providers/types.js';
+import { registerSession, addSessionTokens, unregisterSession } from './context-monitor.js';
 
 // ---------- WebSocket broadcast ----------
 
@@ -77,6 +78,9 @@ export class SessionRecorder {
       abort: session.abort,
     });
 
+    // Register with context monitor (estimate initial context from system prompt)
+    registerSession(this.sessionId, this.agentId, model, 0);
+
     // Start consuming events in the background
     this.consumeEvents(session.events).catch((err) => {
       console.error(`[session-recorder] Error consuming events for ${this.sessionId}:`, err);
@@ -119,6 +123,7 @@ export class SessionRecorder {
       case 'tool_call_complete': {
         const data = event.data as ToolCallCompleteData;
         const status = data.isError ? 'errored' : 'completed';
+        const resultJson = JSON.stringify(data.result);
 
         // Try to update existing record by toolUseId, fall back to insert
         const updated = db
@@ -126,7 +131,7 @@ export class SessionRecorder {
             `UPDATE session_tool_calls SET result = ?, status = ?
              WHERE id = ? AND session_id = ?`,
           )
-          .run(JSON.stringify(data.result), status, data.toolUseId, this.dbSessionId);
+          .run(resultJson, status, data.toolUseId, this.dbSessionId);
 
         if (updated.changes === 0) {
           // No matching start event — insert a complete record
@@ -137,12 +142,15 @@ export class SessionRecorder {
             data.toolUseId || crypto.randomUUID(),
             this.dbSessionId,
             data.toolName,
-            JSON.stringify(data.result),
+            resultJson,
             status,
             simTime,
             now,
           );
         }
+
+        // Update context monitor with estimated tokens from result
+        addSessionTokens(this.sessionId, resultJson.length);
         break;
       }
 
@@ -152,6 +160,7 @@ export class SessionRecorder {
           `UPDATE sessions SET ended_at = ?, outcome = 'completed', token_estimate = ?
            WHERE id = ?`,
         ).run(simTime, data.tokenEstimate, this.dbSessionId);
+        unregisterSession(this.sessionId);
         break;
       }
 
@@ -162,6 +171,7 @@ export class SessionRecorder {
           simTime,
           this.dbSessionId,
         );
+        unregisterSession(this.sessionId);
         break;
       }
     }

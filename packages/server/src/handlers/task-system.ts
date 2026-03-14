@@ -3,6 +3,7 @@ import { getDb } from '../db.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { transitionAgentState } from '../state-machine.js';
 import { triggerTMTaskComplete, triggerTMBlockerReport } from '../team-manager.js';
+import { runCompressionForAgent } from '../memory-compression.js';
 
 // ── create_task (manager-only) ──────────────────────────────────────
 
@@ -195,6 +196,11 @@ export async function handleCompleteTask(
 
   // Fire Team Manager trigger
   triggerTMTaskComplete(task.team_id, callerAgentId, task.title);
+
+  // Compress agent memory on task completion (fire-and-forget)
+  runCompressionForAgent(callerAgentId, simNow()).catch((err) => {
+    console.error(`[complete_task] Memory compression failed for ${callerAgentId}:`, err);
+  });
 
   return ok({
     task_id: taskId,

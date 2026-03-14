@@ -2,19 +2,13 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Completed Phases (1.0–4.6)
-
-Full specs for completed phases are in the git history. See @NOTES_COMPLETED.md for implementation details.
-
-Upcoming Phases
-
 Phase 5.0 — Memory Compression Pipeline
 
 Goal: implement the memory compression system that summarizes agent activity and stores embeddings for vector retrieval.
 
-Context: depends on Phase 3.2 for session records and Phase 4.2 for context assembly. Install @xenova/transformers for local embeddings and sqlite-vss for vector search.
+Context: depends on Phase 3.2 for session records and Phase 4.2 for context assembly. Install @huggingface/transformers for local embeddings and sqlite-vss for vector search.
 
-What to build: implement the compression job. At task completion and at end of sim day (17:00), the World Server runs a compression job for each agent. The job collects the agent's recent chat logs and session summaries from that sim day, generates a natural language summary using a lightweight LLM call (Agent SDK query with model haiku, maxTurns 1, no tools), embeds the summary using @xenova/transformers, and stores the embedding in the agent_memory table. Set up sqlite-vss as a virtual table that indexes the embedding column of agent_memory. Update the buildSessionContext function from Phase 4.2 to perform vector similarity search against the current task description and inject the top 3 matching memory chunks into the session context. Implement the trigger_compression MCP tool that Team Managers can call for early compression when context limits are approaching. Implement the context window monitoring: the World Server tracks estimated token counts for active sessions and notifies the Team Manager at 80% threshold. At 95% threshold, force-trigger compression automatically as a safety net.
+What to build: implement the compression job. At task completion and at end of sim day (17:00), the World Server runs a compression job for each agent. The job collects the agent's recent chat logs and session summaries from that sim day, generates a natural language summary using a lightweight LLM call (Agent SDK query with model haiku, maxTurns 1, no tools), embeds the summary using @huggingface/transformers, and stores the embedding in the agent_memory table. Set up sqlite-vss as a virtual table that indexes the embedding column of agent_memory. Update the buildSessionContext function from Phase 4.2 to perform vector similarity search against the current task description and inject the top 3 matching memory chunks into the session context. Implement the trigger_compression MCP tool that Team Managers can call for early compression when context limits are approaching. Implement the context window monitoring: the World Server tracks estimated token counts for active sessions and notifies the Team Manager at 80% threshold. At 95% threshold, force-trigger compression automatically as a safety net.
 
 Out of scope: the checkpoint_agent flow is a simple walk-and-speak handled by the Team Manager's session, not a separate system.
 

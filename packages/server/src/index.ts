@@ -47,6 +47,9 @@ import {
   getPRDetails,
   getWorktrees,
 } from './handlers/git-operations.js';
+import { processEndOfDayCompression } from './memory-compression.js';
+import { setContextMonitorSimClock, setContextAlertCallback } from './context-monitor.js';
+import { triggerTMBlockerReport } from './team-manager.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -64,6 +67,13 @@ setMovementSimClock(
   () => clock.getSpeed(),
 );
 setCommunicationSimClock(() => clock.now());
+setContextMonitorSimClock(() => clock.now());
+
+// Wire context monitor alert → Team Manager blocker trigger
+setContextAlertCallback((teamId, agentId, agentName, pct) => {
+  const desc = `Agent ${agentName} is at ${(pct * 100).toFixed(0)}% context window capacity. Use trigger_compression to compress their memory or checkpoint_agent to have them commit current work.`;
+  triggerTMBlockerReport(teamId, agentId, desc);
+});
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -366,6 +376,9 @@ clock.onTick((simTime) => {
 
   // Check for idle agents that need to check in with their TM
   processIdleChecks(simTime);
+
+  // Check for end-of-day memory compression (17:00)
+  processEndOfDayCompression(simTime);
 
   const message = JSON.stringify({
     type: 'tick',

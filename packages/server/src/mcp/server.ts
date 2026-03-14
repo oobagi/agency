@@ -35,6 +35,7 @@ import {
   handleWalkToExit,
   handleSetState,
 } from '../movement.js';
+import { handleTriggerCompression } from '../memory-compression.js';
 
 // ---------- Sim clock accessor (set from index.ts) ----------
 
@@ -77,6 +78,7 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   open_pull_request: handleOpenPullRequest,
   review_pull_request: handleReviewPullRequest,
   merge_pull_request: handleMergePullRequest,
+  trigger_compression: handleTriggerCompression,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------
