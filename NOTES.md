@@ -189,7 +189,7 @@ What was built:
 What was skipped or deferred:
 Deviations from the spec and why:
 Issues encountered:
-Notes for the next agent:
+Notes for the next agent: IMPORTANT — In addition to the spec, add floating activity icons above agent capsules for desk work actions (PR review, git push, task start, commit). These are NOT walk-to-speak communication — they represent work happening at the agent's desk (like getting a notification on their computer). The physical walk rule only applies to agent-to-agent messaging. Show small icons (git, PR, code, etc.) when tool_call_start events fire for begin_task, commit_work, open_pull_request, review_pull_request. These events are already broadcast via WebSocket session subscriptions.
 
 Phase 7.2 — Agent Click Interaction and Side Panel
 
