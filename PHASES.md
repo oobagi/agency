@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.0 — 3D Office Viewport
-
-Goal: render the simulated office as a 3D scene in the browser using React Three Fiber.
-
-Context: depends on Phase 2.0 for WebSocket sim time broadcasts. Install react-three-fiber, drei, and three in the client package. The server-side logic is complete. This phase and all subsequent 7.x phases are client-side.
-
-What to build: set up the React Three Fiber canvas as the main application view. Create the office floor plane with a grid. Render walls, desks, and meeting rooms based on data from GET /api/office/layout (add this endpoint to serve the office_layout table data). Set up an orbital camera with zoom, pan, and rotation controls using Drei's OrbitControls. Add ambient and directional lighting. The office should look clean and minimal, not photorealistic. Establish a WebSocket connection from the client to the server. Receive sim time broadcasts and display the current sim time in a HUD overlay. Add the sim time controls (Play, Pause, speed selector) to the HUD. The controls call the REST endpoints from Phase 2.0.
-
-Out of scope: agent rendering (Phase 7.1), click interaction (Phase 7.2), side panels (Phase 7.3).
-
-Acceptance criteria: opening http://localhost:PORT shows a 3D office scene with floor, walls, desks, and meeting rooms. The camera can be rotated, zoomed, and panned. Sim time is displayed and updates in real time via WebSocket. Play, Pause, and speed controls work and affect the server's sim clock.
-
-Handoff: Phase 7.1 adds agent capsules to this scene.
-
 Phase 7.1 — Agent Capsule Rendering and Movement Animation
 
 Goal: render agents as colored capsules in the 3D scene with smooth movement animation.
