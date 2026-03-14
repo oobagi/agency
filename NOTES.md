@@ -19,15 +19,6 @@ Key facts from completed phases:
 - Git operations use simple-git; create_project inits real repos, merge_pull_request does real merges
 - Hard constraint 7 enforced: agents cannot review or merge their own PRs
 
-Phase 4.6 — PR System and Git Operations
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
-
 Phase 5.0 — Memory Compression Pipeline
 
 Date completed:
