@@ -25,7 +25,15 @@ export type WSMessage =
       listeners: Array<{ id: string; name: string }>;
     }
   | { type: 'blocker_user_facing'; [key: string]: unknown }
-  | { type: 'session_event'; agentId: string; event: unknown };
+  | { type: 'session_event'; agentId: string; event: unknown }
+  | {
+      type: 'conversation_new';
+      conversationId: string;
+      conversationType: string;
+      participant_names: string;
+      first_message: string;
+      sim_time_start: string;
+    };
 
 type MessageHandler = (msg: WSMessage) => void;
 

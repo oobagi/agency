@@ -4,6 +4,8 @@ import type { SimState } from '../hooks/useWebSocket';
 interface HUDProps {
   simState: SimState;
   connected: boolean;
+  showConversations: boolean;
+  onToggleConversations: () => void;
 }
 
 const SPEEDS = [1, 2, 5, 10];
@@ -75,7 +77,7 @@ function formatSimTime(iso: string): string {
   }
 }
 
-export function HUD({ simState, connected }: HUDProps) {
+export function HUD({ simState, connected, showConversations, onToggleConversations }: HUDProps) {
   const togglePause = useCallback(async () => {
     const endpoint = simState.paused ? '/api/sim/resume' : '/api/sim/pause';
     await fetch(endpoint, { method: 'POST' });
@@ -98,6 +100,13 @@ export function HUD({ simState, connected }: HUDProps) {
       </div>
 
       <div style={styles.controls}>
+        <button
+          style={showConversations ? styles.activeButton : styles.button}
+          onClick={onToggleConversations}
+        >
+          Conversations
+        </button>
+
         <button style={styles.button} onClick={togglePause}>
           {simState.paused ? 'Play' : 'Pause'}
         </button>

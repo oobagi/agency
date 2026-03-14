@@ -220,6 +220,22 @@ function deliverMessageToAgent(
   });
 }
 
+// ── Conversation broadcast (WebSocket → all clients) ─────────────────
+
+type ConversationBroadcastFn = (data: {
+  conversationId: string;
+  conversationType: string;
+  participant_names: string;
+  first_message: string;
+  sim_time_start: string;
+}) => void;
+
+let broadcastConversationFn: ConversationBroadcastFn = () => {};
+
+export function setConversationBroadcast(fn: ConversationBroadcastFn): void {
+  broadcastConversationFn = fn;
+}
+
 // ── Conversation recording ──────────────────────────────────────────
 
 function recordConversation(
@@ -272,6 +288,23 @@ function recordConversation(
   });
 
   createTx();
+
+  // Broadcast new conversation to WebSocket clients
+  const names = db
+    .prepare(
+      `SELECT a.name FROM conversation_participants cp
+       JOIN agents a ON cp.agent_id = a.id
+       WHERE cp.conversation_id = ?`,
+    )
+    .all(conversationId) as Array<{ name: string }>;
+
+  broadcastConversationFn({
+    conversationId,
+    conversationType,
+    participant_names: names.map((n) => n.name).join(', '),
+    first_message: message,
+    sim_time_start: simTime,
+  });
 }
 
 function findActiveConversation(participantIds: string[]): { id: string } | undefined {
@@ -303,19 +336,76 @@ function findActiveConversation(participantIds: string[]): { id: string } | unde
 
 // ── REST helpers ────────────────────────────────────────────────────
 
-export function getConversations(limit = 50, offset = 0): unknown[] {
+export interface ConversationFilters {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  type?: string;
+  participant?: string;
+}
+
+export function getConversations(filters: ConversationFilters = {}): {
+  conversations: unknown[];
+  total: number;
+} {
   const db = getDb();
-  return db
+  const { limit = 50, offset = 0, search, type, participant } = filters;
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (type) {
+    conditions.push('c.type = ?');
+    params.push(type);
+  }
+
+  if (participant) {
+    conditions.push(
+      `c.id IN (SELECT cp2.conversation_id FROM conversation_participants cp2
+        JOIN agents a2 ON cp2.agent_id = a2.id
+        WHERE LOWER(a2.name) LIKE ?)`,
+    );
+    params.push(`%${participant.toLowerCase()}%`);
+  }
+
+  if (search) {
+    conditions.push(
+      `c.id IN (SELECT cm2.conversation_id FROM conversation_messages cm2
+        WHERE LOWER(cm2.message) LIKE ?)`,
+    );
+    params.push(`%${search.toLowerCase()}%`);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const total = (
+    db.prepare(`SELECT COUNT(*) as cnt FROM conversations c ${where}`).get(...params) as {
+      cnt: number;
+    }
+  ).cnt;
+
+  const conversations = db
     .prepare(
       `SELECT c.*,
               (SELECT COUNT(*)
                FROM conversation_messages cm
-               WHERE cm.conversation_id = c.id) as message_count
+               WHERE cm.conversation_id = c.id) as message_count,
+              (SELECT GROUP_CONCAT(a.name, ', ')
+               FROM conversation_participants cp
+               JOIN agents a ON cp.agent_id = a.id
+               WHERE cp.conversation_id = c.id) as participant_names,
+              (SELECT cm3.message
+               FROM conversation_messages cm3
+               WHERE cm3.conversation_id = c.id
+               ORDER BY cm3.sim_time ASC LIMIT 1) as first_message
        FROM conversations c
+       ${where}
        ORDER BY c.sim_time_start DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(limit, offset);
+    .all(...params, limit, offset);
+
+  return { conversations, total };
 }
 
 export function getConversation(conversationId: string): unknown | undefined {

@@ -6,6 +6,7 @@ import { useChatBubbles } from './hooks/useChatBubbles';
 import { OfficeScene } from './components/OfficeScene';
 import { HUD } from './components/HUD';
 import { SidePanel } from './components/SidePanel';
+import { ConversationsPanel } from './components/ConversationsPanel';
 
 const styles = {
   root: {
@@ -34,6 +35,7 @@ export function App() {
   const agents = useAgents(subscribe);
   const chatBubbles = useChatBubbles(subscribe);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [showConversations, setShowConversations] = useState(false);
 
   const handleAgentClick = useCallback((agentId: string) => {
     setSelectedAgentId(agentId);
@@ -41,6 +43,10 @@ export function App() {
 
   const handleClose = useCallback(() => {
     setSelectedAgentId(null);
+  }, []);
+
+  const toggleConversations = useCallback(() => {
+    setShowConversations((prev) => !prev);
   }, []);
 
   if (error) {
@@ -57,7 +63,12 @@ export function App() {
 
   return (
     <div style={styles.root}>
-      <HUD simState={simState} connected={connected} />
+      <HUD
+        simState={simState}
+        connected={connected}
+        showConversations={showConversations}
+        onToggleConversations={toggleConversations}
+      />
       <OfficeScene
         layout={layout}
         agents={agents}
@@ -66,6 +77,9 @@ export function App() {
         onAgentClick={handleAgentClick}
         onBackgroundClick={handleClose}
       />
+      {showConversations && (
+        <ConversationsPanel onClose={toggleConversations} subscribe={subscribe} />
+      )}
       {selectedAgentId && (
         <SidePanel agentId={selectedAgentId} onClose={handleClose} subscribe={subscribe} />
       )}

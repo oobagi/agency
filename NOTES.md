@@ -42,15 +42,10 @@ Key facts from completed phases:
 - onPointerMissed on Canvas closes the panel; selected capsule glows with emissive
 - Chat bubbles appear above agents on speak events, truncated to 80 chars, full on hover
 - Bubbles fade out after 6s with opacity transition, one bubble per agent at a time
-
-Phase 7.4 — Conversations Panel
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- ConversationsPanel: left-side 420px panel, toggled from HUD button
+- GET /api/conversations supports search, type, participant, limit, offset query params; returns { conversations, total }
+- conversation_new WebSocket event broadcasts new conversations with conversationType, participant_names, first_message
+- Integration tests use dynamic imports to set AGENCY_DB_PATH before db module loads
 
 Phase 7.5 — Diff Viewer Panel
 

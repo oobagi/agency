@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.4 — Conversations Panel
-
-Goal: build the Conversations panel showing all office-wide conversation history.
-
-Context: depends on Phase 4.4 for conversation records in the database.
-
-What to build: add a Conversations tab or panel accessible from the UI (e.g., a toggle button in the HUD). The panel lists all conversations from GET /api/conversations with pagination. Each entry shows: conversation type (one-on-one, meeting, standup, briefing, user interaction), participants by name, sim time, and a preview of the first message. Clicking a conversation expands it to show the full transcript. Add search functionality: filter by participant name, keyword in messages, conversation type, and sim date range. New conversations should appear in real time via WebSocket subscription. The panel is separate from the agent-specific chat log in the side panel.
-
-Out of scope: filtering by team, exporting conversations.
-
-Acceptance criteria: the Conversations panel lists all conversations in the simulation. Each entry shows participants, type, time, and transcript. Search by keyword and participant works. New conversations appear in real time.
-
-Handoff: the user now has full visibility into all office communication.
-
 Phase 7.5 — Diff Viewer Panel
 
 Goal: build the read-only diff viewer for browsing worktree changes, commits, and PRs.

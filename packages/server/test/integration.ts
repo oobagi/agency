@@ -8,24 +8,26 @@
  * Run: npx tsx test/integration.ts
  */
 
-import { initDb, closeDb, getDb } from '../src/db.js';
-import { dispatchToolCall } from '../src/mcp/server.js';
-import { setSimClock } from '../src/mcp/server.js';
-import { SimClock } from '../src/sim-clock.js';
-import { setMovementSimClock, startMovementLoop, stopMovementLoop } from '../src/movement.js';
-import { setCommunicationSimClock } from '../src/handlers/communication.js';
-import { initOfficeManager, setOfficeManagerSimClock } from '../src/office-manager.js';
-import { setTeamManagerSimClock } from '../src/team-manager.js';
-import { setContextSimClock } from '../src/context-assembly.js';
-import { setIdleCheckerSimClock } from '../src/idle-checker.js';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
 const testId = crypto.randomUUID().slice(0, 8);
-const DB_PATH = process.env.AGENCY_DB_PATH ?? path.join(os.tmpdir(), `agency-test-${testId}.db`);
+const DB_PATH = path.join(os.tmpdir(), `agency-test-${testId}.db`);
+process.env.AGENCY_DB_PATH = DB_PATH;
 const REPO_PATH = path.join(os.tmpdir(), `agency-test-repo-${testId}`);
+
+const { initDb, closeDb, getDb } = await import('../src/db.js');
+const { dispatchToolCall, setSimClock } = await import('../src/mcp/server.js');
+const { SimClock } = await import('../src/sim-clock.js');
+const { setMovementSimClock, startMovementLoop, stopMovementLoop } =
+  await import('../src/movement.js');
+const { setCommunicationSimClock } = await import('../src/handlers/communication.js');
+const { initOfficeManager, setOfficeManagerSimClock } = await import('../src/office-manager.js');
+const { setTeamManagerSimClock } = await import('../src/team-manager.js');
+const { setContextSimClock } = await import('../src/context-assembly.js');
+const { setIdleCheckerSimClock } = await import('../src/idle-checker.js');
 
 let passed = 0;
 let failed = 0;
@@ -518,6 +520,56 @@ async function main() {
     typeof SessionRecorder.prototype.onComplete === 'function',
     'SessionRecorder has onComplete method',
   );
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 7.4: Conversations API
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n=== Phase 7.4: Conversations API ===');
+
+  const { getConversations, getConversation } = await import('../src/handlers/communication.js');
+
+  // We already have a conversation from the speak test above
+  const allConvos = getConversations({});
+  assert(allConvos.total > 0, 'getConversations returns total count');
+  assert(allConvos.conversations.length > 0, 'getConversations returns conversations');
+
+  const firstConvo = allConvos.conversations[0] as Record<string, unknown>;
+  assert('participant_names' in firstConvo, 'Conversations include participant_names');
+  assert('first_message' in firstConvo, 'Conversations include first_message');
+  assert('message_count' in firstConvo, 'Conversations include message_count');
+
+  // Filter by type
+  const filteredByType = getConversations({ type: 'one_on_one' });
+  for (const c of filteredByType.conversations as Array<Record<string, unknown>>) {
+    assert(c.type === 'one_on_one', 'Type filter works');
+  }
+
+  // Filter by participant name
+  const filteredByParticipant = getConversations({ participant: 'Bob' });
+  assert(filteredByParticipant.total > 0, 'Participant filter finds conversations');
+
+  // Filter by search (message keyword)
+  const filteredBySearch = getConversations({ search: 'login' });
+  assert(filteredBySearch.total > 0, 'Search filter finds conversations by keyword');
+
+  // Search with no results
+  const noResults = getConversations({ search: 'zzz_nonexistent_zzz' });
+  assert(noResults.total === 0, 'Search filter returns 0 for non-matching keyword');
+
+  // Pagination
+  const page1 = getConversations({ limit: 1, offset: 0 });
+  assert(page1.conversations.length <= 1, 'Pagination limit works');
+
+  // Get conversation detail
+  const convoId = (allConvos.conversations[0] as Record<string, unknown>).id as string;
+  const detail = getConversation(convoId) as Record<string, unknown>;
+  assert(detail !== undefined, 'getConversation returns detail');
+  assert(Array.isArray(detail.participants), 'Detail includes participants array');
+  assert(Array.isArray(detail.messages), 'Detail includes messages array');
+
+  // setConversationBroadcast exists
+  const { setConversationBroadcast } = await import('../src/handlers/communication.js');
+  assert(typeof setConversationBroadcast === 'function', 'setConversationBroadcast is exported');
 
   console.log('\n=== Delete project ===');
   const del = await call('delete_project', { project_id: projectId }, omId);

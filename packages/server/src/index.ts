@@ -36,6 +36,7 @@ import {
 import {
   setCommunicationSimClock,
   setSpeakBroadcast,
+  setConversationBroadcast,
   getConversations,
   getConversation,
 } from './handlers/communication.js';
@@ -265,8 +266,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── Conversation endpoints ──────────────────────────────────────
-  if (url === '/api/conversations' && method === 'GET') {
-    return json(res, getConversations());
+  if (
+    url?.startsWith('/api/conversations') &&
+    !url.match(/^\/api\/conversations\/[^/]+/) &&
+    method === 'GET'
+  ) {
+    const parsedUrl = new URL(url, `http://localhost:${PORT}`);
+    const search = parsedUrl.searchParams.get('search') ?? undefined;
+    const type = parsedUrl.searchParams.get('type') ?? undefined;
+    const participant = parsedUrl.searchParams.get('participant') ?? undefined;
+    const limit = parseInt(parsedUrl.searchParams.get('limit') ?? '50', 10);
+    const offset = parseInt(parsedUrl.searchParams.get('offset') ?? '0', 10);
+    return json(res, getConversations({ search, type, participant, limit, offset }));
   }
 
   if (url?.match(/^\/api\/conversations\/[^/]+$/) && method === 'GET') {
@@ -424,6 +435,16 @@ setPositionBroadcast((data) => {
 // ── Speak broadcast (communication → WebSocket clients for chat bubbles) ──
 setSpeakBroadcast((data) => {
   const message = JSON.stringify({ type: 'speak', ...data });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
+// ── Conversation broadcast (new conversations → WebSocket clients) ──
+setConversationBroadcast((data) => {
+  const message = JSON.stringify({ type: 'conversation_new', ...data });
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);
