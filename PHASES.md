@@ -19,36 +19,10 @@ Full specs for completed phases are in the git history. See @NOTES_COMPLETED.md 
 - **Phase 4.1** — Team Manager: 3 triggers (desk arrival, task complete, blocker report), team-scoped context, duplicate session guard.
 - **Phase 4.2** — Context assembly: `buildSessionContext()`, idle checker (30 sim-min threshold), role-filtered tools, ~100k token budget.
 - **Phase 4.3** — Movement & state machine: `TRANSITION_MAP`, position enforcement, 60Hz decoupled render loop, proximity detection (2.5 units), walk handlers, `set_state`.
+- **Phase 4.4** — Physical communication: `speak` with proximity enforcement, `send_to_manager` with auto-walk, conversation recording system, WebSocket speak broadcast.
+- **Phase 4.5** — Task system: `create_task`, `begin_task`, `complete_task`, `report_blocker` handlers, task lifecycle (pending → in_progress → completed/blocked), TM triggers on completion/blocker.
 
 Upcoming Phases
-
-Phase 4.4 — Physical Communication Enforcement
-
-Goal: ensure that every communication pathway in the system respects physical presence rules.
-
-Context: depends on Phase 4.3. This phase exists specifically to prevent the most commonly broken rule from DESIGN_DOC.md. Review the physical communication section carefully.
-
-What to build: audit every code path that could deliver a message between agents. The speak tool handler must verify proximity before delivering any message. Add proximity radius as a configurable setting. The send_to_manager tool must first trigger walk_to_agent to the manager's location, wait for arrival, then deliver the message. No message delivery should occur without the sender being within proximity of the recipient. Add a proximity validation middleware to the MCP server that checks proximity for speak and any future tools that involve communication. Log all proximity violations as warnings. Add the conversation recording system: every speak call that successfully delivers a message creates a conversation record (or appends to an existing one if agents are in an ongoing conversation) in the conversations, conversation_participants, and conversation_messages tables.
-
-Out of scope: meeting room communication (Phase 6.0), the Conversations panel UI (UI phases).
-
-Acceptance criteria: speak from an agent not within proximity of the target is rejected with an error. send_to_manager initiates movement before message delivery. No code path exists that delivers a message without proximity check. Every successful speak creates conversation records in the database. A comprehensive test proves that two agents across the office cannot communicate without one walking to the other first.
-
-Handoff: physical communication is now bulletproof. Phase 6.0 will add meeting rooms which are a structured form of physical communication.
-
-Phase 4.5 — Task System
-
-Goal: implement the task lifecycle from creation through assignment, execution, and completion.
-
-Context: depends on Phase 4.1 for Team Manager sessions and Phase 4.3 for state machine. Tasks are created by managers and assigned to agents who must be at their desk to begin work.
-
-What to build: implement the begin_task MCP tool handler. When an agent calls begin_task with a task_id, the handler validates the agent is at their desk (position check), transitions the agent to Programming or Researching state based on the task type, and updates the task status to in_progress. Implement task completion: when an agent's session completes a task, the task status is set to completed, the agent transitions to Idle, and the Team Manager's on_task_complete trigger fires. Implement task creation as part of manager sessions: Team Managers create tasks by interacting with the task system during their sessions. Tasks have a status lifecycle: pending → in_progress → completed or blocked. When an agent calls report_blocker while working on a task, the task status changes to blocked and the escalation chain begins. Add REST endpoints: GET /api/tasks for listing tasks with filters, GET /api/agents/:id/tasks for an agent's task history.
-
-Out of scope: PR creation from completed tasks (Phase 4.6), the full escalation chain UI (Phase 6.2).
-
-Acceptance criteria: begin_task fails if the agent is not at their desk. begin_task transitions the agent to Programming and the task to in_progress. Task completion transitions the agent to Idle and fires the Team Manager trigger. report_blocker on a task sets both agent and task to blocked states. REST endpoints return correct task data.
-
-Handoff: Phase 4.6 adds PR creation as the next step after task completion.
 
 Phase 4.6 — PR System and Git Operations
 
