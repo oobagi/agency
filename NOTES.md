@@ -112,12 +112,12 @@ Notes for the next agent: Import buildSessionContext from ./context-assembly.js 
 
 Phase 4.3 — Physical Movement and State Machine
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: Two modules. (1) State machine (src/state-machine.ts) with explicit TRANSITION_MAP data structure defining all valid state transitions per DESIGN_DOC.md. transitionAgentState() validates against the map, enforces position checks (Programming/Researching require being at desk, Meeting requires being in meeting room), and calls onAgentStateChange(). isValidTransition() exported for checking without applying. (2) Movement system (src/movement.ts) with decoupled 60Hz render loop for smooth animation. Movement runs on a real-time setInterval (16ms / ~60fps) separate from the sim clock tick. Movement speed scales with sim speed so agents move faster when sim is sped up. Movement handlers: walk_to_desk, walk_to_agent, walk_to_meeting_room, walk_to_exit — each transitions agent to Walking state and registers a movement target. On each render tick, walking agents advance toward their target. On arrival, agents snap to the target and transition Walking → Idle. set_state handler validates against the transition map. Proximity detection: getAgentsInProximity(agentId) returns nearby agents within PROXIMITY_RADIUS (2.5 units), isWithinProximity(a, b) for pairwise checks. Position updates broadcast via WebSocket as agent_position events. All 5 handlers registered as real MCP tool handlers.
+What was skipped or deferred: Pathfinding around obstacles (using direct movement for now per spec — refine in UI phases if needed).
+Deviations from the spec and why: Movement render loop decoupled from sim clock at 60Hz real-time for smooth animation. Sim ticks still drive game logic (scheduling, state changes) but movement interpolation runs independently. This was explicitly requested.
+Issues encountered: Lint rules flagged Date.now() / performance.now() as game-logic time — resolved by using performance.now() for the render loop delta (intentionally real-time for frame timing, not game logic).
+Notes for the next agent: Import transitionAgentState from ./state-machine.js for any state changes — it enforces the full transition map and position checks. Import getAgentsInProximity/isWithinProximity from ./movement.js for proximity checks. The movement loop starts automatically in index.ts via startMovementLoop(). Position broadcasts go to all WebSocket clients as {type: 'agent_position', agentId, x, y, z, state, moving}. PROXIMITY_RADIUS is 2.5 units, MOVEMENT_SPEED is 5 units/sim-second.
 
 Phase 4.4 — Physical Communication Enforcement
 

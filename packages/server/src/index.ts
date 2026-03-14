@@ -33,6 +33,12 @@ import {
 import { setTeamManagerSimClock } from './team-manager.js';
 import { setContextSimClock } from './context-assembly.js';
 import { setIdleCheckerSimClock, processIdleChecks } from './idle-checker.js';
+import {
+  setMovementSimClock,
+  setPositionBroadcast,
+  startMovementLoop,
+  stopMovementLoop,
+} from './movement.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -45,6 +51,7 @@ setOfficeManagerSimClock(() => clock.now());
 setTeamManagerSimClock(() => clock.now());
 setContextSimClock(() => clock.now());
 setIdleCheckerSimClock(() => clock.now());
+setMovementSimClock(() => clock.now(), () => clock.getSpeed());
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -267,6 +274,16 @@ wss.on('connection', (ws) => {
   });
 });
 
+// ── Position broadcast (movement system → WebSocket clients) ──────
+setPositionBroadcast((data) => {
+  const message = JSON.stringify({ type: 'agent_position', ...data });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
 clock.onTick((simTime) => {
   // Run scheduled jobs on every tick
   processSchedulerTick(simTime);
@@ -294,6 +311,7 @@ initOfficeManager();
 handleMissedJobsOnBoot(clock.now());
 
 clock.start();
+startMovementLoop();
 console.log(
   `Sim clock started: ${clock.now().toISOString()}, speed=${clock.getSpeed()}x, paused=${clock.isPaused()}`,
 );
@@ -310,6 +328,7 @@ server.listen(PORT, () => {
 function shutdown() {
   console.log('Shutting down...');
   clock.stop();
+  stopMovementLoop();
   closeMcpSessions();
   wss.close();
   server.close();

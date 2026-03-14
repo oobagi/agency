@@ -11,6 +11,13 @@ import {
   handleAssignAgentToTeam,
 } from '../handlers/agent-management.js';
 import { handleScheduleEvent } from '../scheduler.js';
+import {
+  handleWalkToDesk,
+  handleWalkToAgent,
+  handleWalkToMeetingRoom,
+  handleWalkToExit,
+  handleSetState,
+} from '../movement.js';
 
 // ---------- Sim clock accessor (set from index.ts) ----------
 
@@ -34,6 +41,11 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   create_team: handleCreateTeam,
   assign_agent_to_team: handleAssignAgentToTeam,
   schedule_event: handleScheduleEvent,
+  walk_to_desk: handleWalkToDesk,
+  walk_to_agent: handleWalkToAgent,
+  walk_to_meeting_room: handleWalkToMeetingRoom,
+  walk_to_exit: handleWalkToExit,
+  set_state: handleSetState,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------
