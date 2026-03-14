@@ -84,8 +84,9 @@ export async function handleDeleteProject(
 
   if (!project) return error(`Project "${projectId}" not found`);
 
-  // Remove DB records (worktrees, PRs, tasks referencing this project)
+  // Remove DB records (tasks, PRs, worktrees, team refs, then project)
   const deleteTx = db.transaction(() => {
+    db.prepare('DELETE FROM tasks WHERE project_id = ?').run(projectId);
     db.prepare('DELETE FROM pull_requests WHERE project_id = ?').run(projectId);
     db.prepare('DELETE FROM worktrees WHERE project_id = ?').run(projectId);
     db.prepare('UPDATE teams SET project_id = NULL WHERE project_id = ?').run(projectId);
@@ -167,8 +168,10 @@ export async function handleCreateWorktree(
     | undefined;
   if (!team) return error(`Team "${teamId}" not found`);
 
-  // Worktree path: project_repo/../project_name-branch_name
-  const worktreePath = path.join(path.dirname(project.repo_path), `${project.name}-${branchName}`);
+  // Worktree path: inside the project repo parent dir, named project-branch
+  const safeBranch = branchName.replace(/\//g, '-');
+  const worktreeDir = `${path.basename(project.repo_path)}-wt-${safeBranch}`;
+  const worktreePath = path.join(path.dirname(project.repo_path), worktreeDir);
 
   if (fs.existsSync(worktreePath)) {
     return error(`Worktree path "${worktreePath}" already exists`);
