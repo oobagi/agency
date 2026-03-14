@@ -24,7 +24,7 @@ Closing the browser doesn't stop anything. The simulation keeps running.
 | **3D Rendering**             | React Three Fiber + Drei           | Declarative 3D in React, Drei provides camera controls, billboards, and HTML overlays out of the box                    |
 | **Database**                 | SQLite via better-sqlite3          | Zero-config embedded database, single file, no external process, perfect for a local simulation                         |
 | **Vector Search**            | sqlite-vss                         | Vector similarity search inside SQLite for agent memory retrieval without an external vector DB                         |
-| **Embeddings**               | @xenova/transformers               | Runs embedding models locally in Node.js, no external API calls needed for memory compression                           |
+| **Embeddings**               | @huggingface/transformers          | Runs embedding models locally in Node.js, no external API calls needed for memory compression                           |
 | **Git Operations**           | simple-git                         | Lightweight Node.js wrapper around Git CLI for repo initialization, worktree management, and diff generation            |
 | **Real-time Updates**        | WebSockets (ws)                    | Push agent state changes, sim time ticks, and live session events to the browser without polling                        |
 | **Agent-to-World Interface** | MCP Server                         | Model Context Protocol server gives agents a structured tool-calling interface to interact with the simulation          |
