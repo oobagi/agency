@@ -2,7 +2,7 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-Completed phases (1.0 through 6.0) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
+Completed phases (1.0 through 7.1) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
 
 Key facts from completed phases:
 
@@ -29,24 +29,16 @@ Key facts from completed phases:
 - Meeting rooms seeded via migration 004 (Alpha Room, Beta Room, Gamma Room)
 - SessionRecorder.onComplete() callback fires when session ends (used by meeting system)
 - TM persona includes meeting scheduling instructions and meeting room list in context
+- 3D viewport: React Three Fiber + Drei, OrbitControls, floor/walls/desks/meeting rooms
+- useWebSocket hook with subscribe pattern for real-time events
+- HUD overlay with sim time, Play/Pause, speed selector (1x/2x/5x/10x)
+- GET /api/office/layout returns layout + meetingRooms + desks with team colors
+- Agent capsules rendered with team colors, smooth lerp interpolation, idle bobbing
+- useAgents hook tracks positions via WebSocket, fetches initial state via REST
+- Activity icons (laptop, checkmark, outbox, magnifier) appear above capsules for 3s on tool calls
+- Blocked agents show red exclamation mark; OM is neutral gray
 
-Phase 7.0 — 3D Office Viewport
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
-
-Phase 7.1 — Agent Capsule Rendering and Movement Animation
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent: IMPORTANT — In addition to the spec, add floating activity icons above agent capsules for desk work actions (PR review, git push, task start, commit). These are NOT walk-to-speak communication — they represent work happening at the agent's desk (like getting a notification on their computer). The physical walk rule only applies to agent-to-agent messaging. Show small icons (git, PR, code, etc.) when tool_call_start events fire for begin_task, commit_work, open_pull_request, review_pull_request. These events are already broadcast via WebSocket session subscriptions.
+Phase 7.2 — Agent Click Interaction and Side Panel
 
 Phase 7.2 — Agent Click Interaction and Side Panel
 

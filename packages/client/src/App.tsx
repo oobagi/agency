@@ -1,5 +1,6 @@
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOfficeLayout } from './hooks/useOfficeLayout';
+import { useAgents } from './hooks/useAgents';
 import { OfficeScene } from './components/OfficeScene';
 import { HUD } from './components/HUD';
 
@@ -25,8 +26,9 @@ const styles = {
 };
 
 export function App() {
-  const { connected, simState } = useWebSocket();
+  const { connected, simState, subscribe } = useWebSocket();
   const { data: layout, error } = useOfficeLayout();
+  const agents = useAgents(subscribe);
 
   if (error) {
     return (
@@ -43,7 +45,7 @@ export function App() {
   return (
     <div style={styles.root}>
       <HUD simState={simState} connected={connected} />
-      <OfficeScene layout={layout} />
+      <OfficeScene layout={layout} agents={agents} />
     </div>
   );
 }

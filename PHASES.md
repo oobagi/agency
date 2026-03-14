@@ -2,20 +2,6 @@ Agency Implementation Phases
 
 This document defines every phase of the Agency build in granular micro-phases numbered X.Y. Phases are ordered so that LLM integration and agent orchestration come before simulation rendering. Read DESIGN_DOC.md in full before starting any phase.
 
-Phase 7.1 — Agent Capsule Rendering and Movement Animation
-
-Goal: render agents as colored capsules in the 3D scene with smooth movement animation.
-
-Context: depends on Phase 7.0 for the viewport and Phase 4.3 for agent position data. Agent positions are stored in the database and broadcast via WebSocket.
-
-What to build: add a WebSocket subscription for agent state updates. The server broadcasts agent position, state, and team_id changes. Render each agent as a capsule mesh at their current position. Color the capsule based on the agent's team color (fetched from the teams table via the agent's team_id). The Office Manager and unassigned agents use neutral gray. Add smooth interpolation between position updates so agents glide rather than teleport. Display a floating name label above each capsule using Drei's Html or Billboard component. Show the agent's current state as a small text or icon below their name. When an agent is in Blocked state, render a red exclamation mark above their capsule. Add a simple idle animation (subtle floating or breathing effect) for agents who are not walking.
-
-Out of scope: click interaction (Phase 7.2), chat bubbles (Phase 7.3).
-
-Acceptance criteria: all agents in the database appear as colored capsules in the viewport. Capsule colors match team colors. Agents moving in the simulation animate smoothly. Name labels are visible. Blocked agents show a red exclamation mark. The Office Manager is visually distinct (neutral color).
-
-Handoff: Phase 7.2 adds click interaction so the user can actually interact with these capsules.
-
 Phase 7.2 — Agent Click Interaction and Side Panel
 
 Goal: implement clicking an agent to open a side panel with their information, chat log, sessions, and a text input.

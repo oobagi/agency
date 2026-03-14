@@ -181,3 +181,12 @@ What was skipped or deferred: Nothing.
 Deviations from the spec and why: Office layout data was not previously seeded — added migration 005 to populate floor and wall geometry. Endpoint returns desks and meeting rooms alongside layout elements for convenience (avoids multiple fetches). Used inline styles per client rules (no global CSS class collisions).
 Issues encountered: None.
 Notes for the next agent: The 3D scene is rendered. useWebSocket already handles agent_position events — Phase 7.1 just needs to consume them. The subscribe() function from useWebSocket returns an unsubscribe function. Desks are at x=[5..26], z starts at 5 and increases per team row. Meeting rooms at (15,5), (15,15), (-15,5). Camera defaults to position [30,25,30] looking at [5,0,8].
+
+Phase 7.1 — Agent Capsule Rendering and Movement Animation
+
+Date completed: 2026-03-13
+What was built: Agent capsules rendered as colored capsule meshes in the 3D scene. (1) useAgents hook: fetches all agents via GET /api/agents on mount, subscribes to WebSocket agent_position events for real-time position/state updates, tracks per-agent render state with target positions for interpolation, handles new agents appearing via lazy fetch. (2) AgentCapsule component: capsule mesh colored by team color (OM neutral gray #9ca3af, unassigned #6b7280), smooth lerp interpolation between position updates (LERP_SPEED=8), idle bobbing animation (sine wave, 0.05 amplitude) for stationary agents, floating name label via Drei Html, state text below name, red exclamation mark for Blocked agents. (3) Activity icons: emojis (laptop, checkmark, outbox, magnifier) appear above capsules for 3s when tool_call_start events fire for begin_task, commit_work, open_pull_request, review_pull_request. Icons tracked in useAgents via session_event WebSocket messages. (4) AgentLayer component renders all agents from the Map. (5) OfficeScene updated to accept and render agents prop.
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: Added activity icons per the NOTES.md instruction for Phase 7.1 — floating emojis for desk work tool calls.
+Issues encountered: None.
+Notes for the next agent: AgentCapsule does not yet have onClick — that's Phase 7.2. The useAgents hook returns a Map<string, AgentRenderState>. The subscribe pattern from useWebSocket is used to receive position and session events. Activity icons auto-expire after 3s via a setInterval cleanup.
