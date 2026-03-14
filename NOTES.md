@@ -67,12 +67,12 @@ Notes for the next agent: Import handler functions from ./handlers/agent-managem
 
 Phase 3.2 — Session Recording Pipeline
 
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+Date completed: 2026-03-13
+What was built: SessionRecorder class (src/session-recorder.ts) that wraps a provider Session and records all events to the database. On session start, inserts a record into the sessions table with agent_id, sim_day, provider, model, and started_at. Consumes the session's async event stream in the background. On tool_call_start, inserts into session_tool_calls with status 'pending'. On tool_call_complete, updates the tool call record with result and status 'completed' or 'errored'. On session_complete, updates the session with ended_at, outcome 'completed', and token_estimate. On session_error, sets outcome to 'errored'. All events are broadcast via a pluggable broadcast function to WebSocket subscribers. WebSocket subscription system: clients send {"type": "subscribe_sessions", "agentId": "..."} to receive live session events for a specific agent. Unsubscribe with {"type": "unsubscribe_sessions", "agentId": "..."}. Active session tracking with Map for interrupt support. interruptSession() function aborts the session, updates DB outcome, and removes from active tracking. REST endpoints: GET /api/agents/:id/sessions (all sessions with tool call count), GET /api/sessions/:id (single session with full tool_calls array), POST /api/sessions/:id/interrupt (graceful interruption).
+What was skipped or deferred: Nothing.
+Deviations from the spec and why: None.
+Issues encountered: None.
+Notes for the next agent: Import SessionRecorder from ./session-recorder.js. Construct with (session, provider, model, simNow) — it automatically starts consuming events in the background. Call setSessionBroadcast() from index.ts to wire up WebSocket broadcasting. interruptSession(sessionId, outcome, simNow) is available for hung session detection (Phase 5.1) and the UI Stop button. getActiveSession() and getActiveSessionForAgent() check if a session is currently running. All session-spawning code in future phases should wrap sessions with SessionRecorder.
 
 Phase 3.3 — Daily Schedule Automation
 

@@ -11,6 +11,13 @@ import {
   getTeam,
   getDesks,
 } from './handlers/agent-management.js';
+import {
+  setSessionBroadcast,
+  getSessionsForAgent,
+  getSessionById,
+  interruptSession,
+} from './session-recorder.js';
+import type { SessionEvent } from './providers/types.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -107,6 +114,26 @@ const server = http.createServer(async (req, res) => {
     return json(res, getDesks(teamId));
   }
 
+  // ── Session endpoints ────────────────────────────────────────────
+  if (url?.match(/^\/api\/agents\/[^/]+\/sessions$/) && method === 'GET') {
+    const agentId = url.split('/')[3];
+    return json(res, getSessionsForAgent(agentId));
+  }
+
+  if (url?.match(/^\/api\/sessions\/[^/]+$/) && method === 'GET') {
+    const sessionId = url.split('/')[3];
+    const session = getSessionById(sessionId);
+    if (!session) return json(res, { error: 'Session not found' }, 404);
+    return json(res, session);
+  }
+
+  if (url?.match(/^\/api\/sessions\/[^/]+\/interrupt$/) && method === 'POST') {
+    const sessionId = url.split('/')[3];
+    const success = interruptSession(sessionId, 'interrupted', () => clock.now());
+    if (!success) return json(res, { error: 'Session not found or not active' }, 404);
+    return json(res, { interrupted: true, sessionId });
+  }
+
   if (url === '/api/sim/speed' && method === 'POST') {
     try {
       const body = JSON.parse(await readBody(req));
@@ -127,6 +154,44 @@ const server = http.createServer(async (req, res) => {
 
 // WebSocket server attached to the HTTP server
 const wss = new WebSocketServer({ server });
+
+// ── Session event subscriptions ───────────────────────────────────
+// Clients can subscribe to live session events for specific agents.
+// Send: {"type": "subscribe_sessions", "agentId": "..."} to subscribe.
+// Send: {"type": "unsubscribe_sessions", "agentId": "..."} to unsubscribe.
+
+const sessionSubscriptions = new Map<WebSocket, Set<string>>();
+
+setSessionBroadcast((agentId: string, event: SessionEvent) => {
+  const message = JSON.stringify({ type: 'session_event', agentId, event });
+  for (const [client, subs] of sessionSubscriptions) {
+    if (client.readyState === WebSocket.OPEN && subs.has(agentId)) {
+      client.send(message);
+    }
+  }
+});
+
+wss.on('connection', (ws) => {
+  sessionSubscriptions.set(ws, new Set());
+
+  ws.on('message', (raw) => {
+    try {
+      const msg = JSON.parse(String(raw));
+      if (msg.type === 'subscribe_sessions' && typeof msg.agentId === 'string') {
+        sessionSubscriptions.get(ws)?.add(msg.agentId);
+      }
+      if (msg.type === 'unsubscribe_sessions' && typeof msg.agentId === 'string') {
+        sessionSubscriptions.get(ws)?.delete(msg.agentId);
+      }
+    } catch {
+      // Ignore invalid messages
+    }
+  });
+
+  ws.on('close', () => {
+    sessionSubscriptions.delete(ws);
+  });
+});
 
 clock.onTick((simTime) => {
   const message = JSON.stringify({
