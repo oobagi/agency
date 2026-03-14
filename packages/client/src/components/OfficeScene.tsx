@@ -15,6 +15,7 @@ interface OfficeSceneProps {
   chatBubbles: ChatBubble[];
   selectedAgentId: string | null;
   selectedRoomId: string | null;
+  highlightAgentId?: string | null;
   onAgentClick: (agentId: string) => void;
   onRoomClick: (roomId: string) => void;
   onBackgroundClick: () => void;
@@ -26,6 +27,7 @@ export function OfficeScene({
   chatBubbles,
   selectedAgentId,
   selectedRoomId,
+  highlightAgentId,
   onAgentClick,
   onRoomClick,
   onBackgroundClick,
@@ -55,7 +57,12 @@ export function OfficeScene({
       <OfficeFurniture layout={layout} selectedRoomId={selectedRoomId} onRoomClick={onRoomClick} />
 
       {/* Agents */}
-      <AgentLayer agents={agents} selectedAgentId={selectedAgentId} onAgentClick={onAgentClick} />
+      <AgentLayer
+        agents={agents}
+        selectedAgentId={selectedAgentId}
+        highlightAgentId={highlightAgentId}
+        onAgentClick={onAgentClick}
+      />
 
       {/* Chat bubbles */}
       <ChatBubbleLayer bubbles={chatBubbles} agents={agents} />

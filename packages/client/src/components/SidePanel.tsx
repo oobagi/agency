@@ -54,6 +54,8 @@ interface SidePanelProps {
   agentId: string;
   onClose: () => void;
   subscribe: (handler: (msg: WSMessage) => void) => () => void;
+  onboarding?: boolean;
+  onMessageSent?: () => void;
 }
 
 type Tab = 'chat' | 'sessions' | 'details';
@@ -227,7 +229,13 @@ function formatTime(iso: string): string {
   }
 }
 
-export function SidePanel({ agentId, onClose, subscribe }: SidePanelProps) {
+export function SidePanel({
+  agentId,
+  onClose,
+  subscribe,
+  onboarding,
+  onMessageSent,
+}: SidePanelProps) {
   const [tab, setTab] = useState<Tab>('chat');
   const [agent, setAgent] = useState<Agent | null>(null);
   const [chatLogs, setChatLogs] = useState<ChatLog[]>([]);
@@ -351,8 +359,9 @@ export function SidePanel({ agentId, onClose, subscribe }: SidePanelProps) {
       },
     ]);
     setMessage('');
+    onMessageSent?.();
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-  }, [agentId, message]);
+  }, [agentId, message, onMessageSent]);
 
   const interruptSession = useCallback(async (sessionId: string) => {
     await fetch(`/api/sessions/${sessionId}/interrupt`, { method: 'POST' });
@@ -526,7 +535,7 @@ export function SidePanel({ agentId, onClose, subscribe }: SidePanelProps) {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Send a message..."
+            placeholder={onboarding ? 'Tell the OM what to build...' : 'Send a message...'}
           />
           <button style={S.sendBtn} onClick={sendMessage}>
             Send

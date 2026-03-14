@@ -3,7 +3,7 @@ import { triggerTMDeskArrival } from './team-manager.js';
 
 // ── Idle check-in config ───────────────────────────────────────────
 
-const IDLE_CHECKIN_THRESHOLD_MS = 30 * 60 * 1000; // 30 sim minutes in ms
+const IDLE_CHECKIN_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 sim hours in ms (~2 real min at 1x)
 
 // Track when each agent entered Idle state (sim time)
 const idleStartTimes = new Map<string, number>();

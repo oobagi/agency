@@ -103,15 +103,19 @@ export async function buildSessionContext(agentId: string, taskContext?: string)
   }>;
 
   if (chatLogs.length > 0) {
+    const hasUserMessages = chatLogs.some((cl) => cl.speaker_type === 'user');
     sections.push(
       '## Recent Messages\n' +
         chatLogs
           .reverse()
           .map((cl) => {
-            const speaker = cl.speaker_type === 'user' ? 'User' : (cl.speaker_name ?? 'System');
+            const speaker = cl.speaker_type === 'user' ? '**User**' : (cl.speaker_name ?? 'System');
             return `- [${cl.sim_time}] ${speaker}: ${cl.message}`;
           })
-          .join('\n'),
+          .join('\n') +
+        (hasUserMessages
+          ? '\n\n**The user has messaged you directly. Use the `reply_to_user` tool to respond to them.**'
+          : ''),
     );
   }
 

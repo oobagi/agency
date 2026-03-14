@@ -7,6 +7,7 @@ import type { AgentRenderState } from '../hooks/useAgents';
 interface AgentCapsuleProps {
   agent: AgentRenderState;
   selected?: boolean;
+  highlight?: boolean;
   onClick?: (agentId: string) => void;
 }
 
@@ -53,8 +54,9 @@ function getCapsuleColor(agent: AgentRenderState): string {
   return agent.teamColor;
 }
 
-export function AgentCapsule({ agent, selected, onClick }: AgentCapsuleProps) {
+export function AgentCapsule({ agent, selected, highlight, onClick }: AgentCapsuleProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const posRef = useRef(new THREE.Vector3(agent.x, 0, agent.z));
 
   useFrame((_, delta) => {
@@ -70,14 +72,23 @@ export function AgentCapsule({ agent, selected, onClick }: AgentCapsuleProps) {
     }
 
     groupRef.current.position.set(posRef.current.x, yOffset, posRef.current.z);
+
+    // Pulsing glow for highlighted capsule
+    if (highlight && meshRef.current) {
+      const mat = meshRef.current.material as THREE.MeshStandardMaterial;
+      const pulse = (Math.sin(Date.now() * 0.003) + 1) / 2; // 0..1
+      mat.emissiveIntensity = 0.3 + pulse * 0.7;
+    }
   });
 
   const color = getCapsuleColor(agent);
+  const emissive = selected ? '#4444aa' : highlight ? '#6366f1' : '#000000';
 
   return (
     <group ref={groupRef} position={[agent.x, 0, agent.z]}>
       {/* Capsule body */}
       <mesh
+        ref={meshRef}
         position={[0, 0.7, 0]}
         onClick={(e) => {
           e.stopPropagation();
@@ -85,7 +96,7 @@ export function AgentCapsule({ agent, selected, onClick }: AgentCapsuleProps) {
         }}
       >
         <capsuleGeometry args={[0.25, 0.6, 8, 16]} />
-        <meshStandardMaterial color={color} emissive={selected ? '#4444aa' : '#000000'} />
+        <meshStandardMaterial color={color} emissive={emissive} />
       </mesh>
 
       {/* Name label + state */}

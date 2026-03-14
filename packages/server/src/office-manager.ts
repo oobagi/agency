@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
 import { providerManager } from './providers/manager.js';
-import { SessionRecorder } from './session-recorder.js';
+import { SessionRecorder, getActiveSessionForAgent } from './session-recorder.js';
 import { registerJobHandler, createDailyScheduleForAgent } from './scheduler.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
+import { buildSessionContext } from './context-assembly.js';
 
 // ── Office Manager persona (system agent, not from agency-agents repo) ─
 
@@ -371,7 +372,8 @@ function buildOMContext(omId: string): string {
   if (userMessages.length > 0) {
     sections.push(
       '## User Messages\nThe user has sent you the following messages:\n' +
-        userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n'),
+        userMessages.map((m) => `- [${m.sim_time}] ${m.message}`).join('\n') +
+        '\n\n**Use the `reply_to_user` tool to respond to the user directly.**',
     );
   }
 
@@ -403,7 +405,64 @@ function buildOMContext(omId: string): string {
   return sections.join('\n\n');
 }
 
-// ── User message to Office Manager ─────────────────────────────────
+// ── Trigger immediate session on user message ─────────────────────
+
+export function triggerUserMessageSession(agentId: string): void {
+  if (getActiveSessionForAgent(agentId)) {
+    console.log(`[user-message] Agent ${agentId} already in session, message will be picked up`);
+    return;
+  }
+
+  const db = getDb();
+  const agent = db.prepare('SELECT role FROM agents WHERE id = ?').get(agentId) as
+    | { role: string }
+    | undefined;
+  if (!agent) return;
+
+  if (agent.role === 'office_manager') {
+    spawnOMSession(agentId).catch((err) => {
+      console.error('[user-message] OM session failed:', err);
+    });
+  } else {
+    spawnAgentSession(agentId).catch((err) => {
+      console.error('[user-message] Agent session failed:', err);
+    });
+  }
+}
+
+async function spawnAgentSession(agentId: string): Promise<void> {
+  const db = getDb();
+  const agent = db.prepare('SELECT persona, role FROM agents WHERE id = ?').get(agentId) as
+    | { persona: string; role: string }
+    | undefined;
+  if (!agent) return;
+
+  const provider = providerManager.getProvider(agentId);
+  const model = providerManager.getModel(agentId);
+  const context = await buildSessionContext(agentId);
+
+  const isManager = agent.role === 'team_manager';
+  const mcpTools = isManager
+    ? Object.keys(TOOL_DEFINITIONS)
+    : Object.entries(TOOL_DEFINITIONS)
+        .filter(([, def]) => !def.managerOnly)
+        .map(([name]) => name);
+
+  console.log(`[user-message] Spawning session for ${agentId} (role=${agent.role})`);
+
+  const session = await provider.spawnSession({
+    agentId,
+    systemPrompt: agent.persona,
+    context,
+    mcpTools,
+    provider: provider.name,
+    model,
+  });
+
+  new SessionRecorder(session, provider.name, model, simNowFn);
+}
+
+// ── User message to agent ─────────────────────────────────────────
 
 export function sendUserMessageToAgent(agentId: string, message: string): void {
   const db = getDb();
