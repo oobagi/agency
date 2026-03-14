@@ -33,6 +33,12 @@ import {
   startMovementLoop,
   stopMovementLoop,
 } from './movement.js';
+import {
+  setCommunicationSimClock,
+  setSpeakBroadcast,
+  getConversations,
+  getConversation,
+} from './handlers/communication.js';
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
@@ -49,6 +55,7 @@ setMovementSimClock(
   () => clock.now(),
   () => clock.getSpeed(),
 );
+setCommunicationSimClock(() => clock.now());
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -212,6 +219,18 @@ const server = http.createServer(async (req, res) => {
     return json(res, getJobQueue());
   }
 
+  // ── Conversation endpoints ──────────────────────────────────────
+  if (url === '/api/conversations' && method === 'GET') {
+    return json(res, getConversations());
+  }
+
+  if (url?.match(/^\/api\/conversations\/[^/]+$/) && method === 'GET') {
+    const conversationId = url.split('/')[3];
+    const conversation = getConversation(conversationId);
+    if (!conversation) return json(res, { error: 'Conversation not found' }, 404);
+    return json(res, conversation);
+  }
+
   if (url === '/api/sim/speed' && method === 'POST') {
     try {
       const body = JSON.parse(await readBody(req));
@@ -274,6 +293,16 @@ wss.on('connection', (ws) => {
 // ── Position broadcast (movement system → WebSocket clients) ──────
 setPositionBroadcast((data) => {
   const message = JSON.stringify({ type: 'agent_position', ...data });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
+// ── Speak broadcast (communication → WebSocket clients for chat bubbles) ──
+setSpeakBroadcast((data) => {
+  const message = JSON.stringify({ type: 'speak', ...data });
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);

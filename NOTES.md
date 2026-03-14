@@ -2,26 +2,19 @@ Agency Implementation Notes
 
 This file is a running log for implementing agents. When you complete a phase, fill in the fields under that phase's section before handing off. Do not delete any section. If you skip or defer something, say so and say why.
 
-Completed phases (1.0 through 4.3) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
+Completed phases (1.0 through 4.4) have been moved to @NOTES_COMPLETED.md. Read that file for full implementation details of prior work.
 
 Key facts from completed phases:
 
 - All completed on 2026-03-13
-- 10 of 24 MCP tools have real handlers: hire_agent, fire_agent, create_team, assign_agent_to_team, schedule_event, walk_to_desk, walk_to_agent, walk_to_meeting_room, walk_to_exit, set_state
+- 12 of 24 MCP tools have real handlers: hire_agent, fire_agent, create_team, assign_agent_to_team, schedule_event, walk_to_desk, walk_to_agent, walk_to_meeting_room, walk_to_exit, set_state, speak, send_to_manager
 - Agent SDK uses Zod v3 internally; tool registry uses Zod v4 — bridged via buildZod3Shape() in claude-agent-sdk.ts
 - Movement render loop runs at 60Hz real-time (decoupled from sim clock) for smooth animation
 - OM sessions fire at 08:05, 13:05, 17:00 (5 min after arrive/return to ensure OM has arrived first)
 - Persona IDs are SHA-256 hashes (not human-readable slugs) — OM context includes actual IDs
 - Vector similarity search for memory is stubbed — plain recency-based retrieval until Phase 5.0
-
-Phase 4.4 — Physical Communication Enforcement
-
-Date completed:
-What was built:
-What was skipped or deferred:
-Deviations from the spec and why:
-Issues encountered:
-Notes for the next agent:
+- startWalking() exported from movement.ts with optional onArrival callback
+- speak rejects if no agents within proximity; send_to_manager auto-walks then delivers
 
 Phase 4.5 — Task System
 

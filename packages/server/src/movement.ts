@@ -289,11 +289,12 @@ export function isWithinProximity(agentId: string, targetAgentId: string): boole
 
 // ── Internal helpers ───────────────────────────────────────────────
 
-function startWalking(
+export function startWalking(
   agentId: string,
   targetX: number,
   targetZ: number,
   destination: string,
+  onArrival?: () => void,
 ): { content: Array<{ type: 'text'; text: string }>; isError?: boolean } {
   // Transition to Walking state
   const result = transitionAgentState(agentId, 'Walking');
@@ -306,6 +307,7 @@ function startWalking(
     agentId,
     targetX,
     targetZ,
+    onArrival,
   });
 
   return mcpOk({

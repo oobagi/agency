@@ -10,6 +10,7 @@ import {
   handleCreateTeam,
   handleAssignAgentToTeam,
 } from '../handlers/agent-management.js';
+import { handleSpeak, handleSendToManager } from '../handlers/communication.js';
 import { handleScheduleEvent } from '../scheduler.js';
 import {
   handleWalkToDesk,
@@ -46,6 +47,8 @@ const REAL_HANDLERS: Record<string, ToolHandler> = {
   walk_to_meeting_room: handleWalkToMeetingRoom,
   walk_to_exit: handleWalkToExit,
   set_state: handleSetState,
+  speak: handleSpeak,
+  send_to_manager: handleSendToManager,
 };
 
 // ---------- Create a fresh MCP server with all tools registered ----------
