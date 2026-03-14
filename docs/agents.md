@@ -16,15 +16,15 @@ There are three tiers of agents:
 
 All agents follow a daily schedule created automatically at hire time:
 
-| Sim Time | Event |
-|----------|-------|
-| 08:00 | Arrive (state: Arriving -> Walking -> Idle) |
-| 08:05 | OM morning planning session fires |
-| 12:00 | Lunch break (state: Break) |
-| 13:00 | Return from lunch (state: Walking -> Idle) |
-| 13:05 | OM midday check session fires |
-| 17:00 | OM end-of-day review + end-of-day memory compression |
-| 17:00 | Depart (state: Departing) |
+| Sim Time | Event                                                |
+| -------- | ---------------------------------------------------- |
+| 08:00    | Arrive (state: Arriving -> Walking -> Idle)          |
+| 08:05    | OM morning planning session fires                    |
+| 12:00    | Lunch break (state: Break)                           |
+| 13:00    | Return from lunch (state: Walking -> Idle)           |
+| 13:05    | OM midday check session fires                        |
+| 17:00    | OM end-of-day review + end-of-day memory compression |
+| 17:00    | Depart (state: Departing)                            |
 
 ## Physical Communication
 
@@ -33,6 +33,7 @@ This is the core simulation mechanic. There are no shortcuts.
 **The rule**: Agent A cannot communicate with Agent B without first physically walking to Agent B's location. The `speak` MCP tool enforces proximity detection on every call — only agents within 2.5 units hear the message. Calls that violate proximity are rejected.
 
 **The flow**:
+
 1. Agent A calls `walk_to_agent` targeting Agent B
 2. Movement system moves Agent A along a path to Agent B
 3. On arrival, Agent A calls `speak`
@@ -83,10 +84,10 @@ Every agentic session follows this lifecycle:
 
 The context monitor tracks estimated tokens per active session:
 
-| Threshold | Action |
-|-----------|--------|
-| 80% | Alert TM via `triggerTMBlockerReport` — TM can use `trigger_compression` or `checkpoint_agent` |
-| 95% | Force-trigger compression automatically, interrupt session |
+| Threshold | Action                                                                                         |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| 80%       | Alert TM via `triggerTMBlockerReport` — TM can use `trigger_compression` or `checkpoint_agent` |
+| 95%       | Force-trigger compression automatically, interrupt session                                     |
 
 Context overflow never causes a silent failure.
 

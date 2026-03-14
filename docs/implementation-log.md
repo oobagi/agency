@@ -36,7 +36,7 @@ SimClock class (src/sim-clock.ts) with now(), pause(), resume(), setSpeed(), onT
 
 **Date**: 2026-03-13
 
-MCP server using @modelcontextprotocol/sdk (v1.27.1) with StreamableHTTP transport mounted at POST/GET/DELETE /mcp. Tool registry module defines all 24 tools from DESIGN_DOC.md with complete Zod v4 input schemas. Per-session McpServer instances with stub handlers. Permission validation layer checks agent role. Agent identity passed via _agent_id field.
+MCP server using @modelcontextprotocol/sdk (v1.27.1) with StreamableHTTP transport mounted at POST/GET/DELETE /mcp. Tool registry module defines all 24 tools from DESIGN_DOC.md with complete Zod v4 input schemas. Per-session McpServer instances with stub handlers. Permission validation layer checks agent role. Agent identity passed via \_agent_id field.
 
 **Issues**: MCP SDK v1.27.1 exports McpServer from @modelcontextprotocol/sdk/server/mcp.js (not the documented path). Zod v4 z.record() requires two arguments. Zod v4 z.object() strips unknown keys by default, requiring .passthrough().
 
@@ -256,6 +256,6 @@ interruptSession() now broadcasts session_complete WebSocket event and transitio
 
 **Date**: 2026-03-14
 
-Health check endpoint (GET /api/health). State restoration on boot via restoreStateOnBoot() — marks orphaned sessions as errored, resets transient agent states (Walking/Arriving/Meeting) to Idle, preserves persistent states (Programming/Researching/Reviewing/Blocked). Enhanced graceful shutdown with double-shutdown guard, session interruption, ordered resource cleanup, 10s force-exit timeout. Provider error handling in SessionRecorder.handleSessionError() — Blocked transition, blocker creation, TM escalation. WebSocket reconnection with exponential backoff (1s * 2^attempt, capped at 30s). useAgents re-fetches on reconnect. React ErrorBoundary wraps all major UI sections.
+Health check endpoint (GET /api/health). State restoration on boot via restoreStateOnBoot() — marks orphaned sessions as errored, resets transient agent states (Walking/Arriving/Meeting) to Idle, preserves persistent states (Programming/Researching/Reviewing/Blocked). Enhanced graceful shutdown with double-shutdown guard, session interruption, ordered resource cleanup, 10s force-exit timeout. Provider error handling in SessionRecorder.handleSessionError() — Blocked transition, blocker creation, TM escalation. WebSocket reconnection with exponential backoff (1s \* 2^attempt, capped at 30s). useAgents re-fetches on reconnect. React ErrorBoundary wraps all major UI sections.
 
 **Deferred**: Integration tests for health endpoint and state restoration (existing test pattern doesn't cover HTTP endpoints).

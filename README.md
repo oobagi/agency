@@ -73,13 +73,13 @@ Closing the browser doesn't stop anything. The simulation keeps running.
 
 ## Tech Stack
 
-| | |
-|---|---|
-| **Server** | Node.js, TypeScript, SQLite (better-sqlite3), WebSockets (ws) |
-| **Client** | React, Vite, React Three Fiber, Drei |
-| **AI** | Claude Agent SDK, MCP Server, @huggingface/transformers |
-| **Git** | simple-git (real repos, real worktrees, real merges) |
-| **Vector Search** | sqlite-vss (agent memory retrieval) |
+|                   |                                                               |
+| ----------------- | ------------------------------------------------------------- |
+| **Server**        | Node.js, TypeScript, SQLite (better-sqlite3), WebSockets (ws) |
+| **Client**        | React, Vite, React Three Fiber, Drei                          |
+| **AI**            | Claude Agent SDK, MCP Server, @huggingface/transformers       |
+| **Git**           | simple-git (real repos, real worktrees, real merges)          |
+| **Vector Search** | sqlite-vss (agent memory retrieval)                           |
 
 ## Project Structure
 
@@ -92,13 +92,13 @@ docs/         # Architecture, API reference, schema, build log
 
 ## Documentation
 
-| Doc | Description |
-|-----|-------------|
-| [Architecture](docs/architecture.md) | System design, module map, boot/shutdown sequences |
-| [Agent System](docs/agents.md) | How agents think, move, communicate, and work |
-| [API Reference](docs/api-reference.md) | REST endpoints, WebSocket events, MCP tools |
-| [Database Schema](docs/database.md) | Full table definitions and migrations |
-| [Implementation Log](docs/implementation-log.md) | Phase-by-phase build history |
+| Doc                                              | Description                                        |
+| ------------------------------------------------ | -------------------------------------------------- |
+| [Architecture](docs/architecture.md)             | System design, module map, boot/shutdown sequences |
+| [Agent System](docs/agents.md)                   | How agents think, move, communicate, and work      |
+| [API Reference](docs/api-reference.md)           | REST endpoints, WebSocket events, MCP tools        |
+| [Database Schema](docs/database.md)              | Full table definitions and migrations              |
+| [Implementation Log](docs/implementation-log.md) | Phase-by-phase build history                       |
 
 ## Development
 

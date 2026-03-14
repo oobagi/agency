@@ -24,81 +24,81 @@ Node.js Server (http + ws)
 
 ### Core
 
-| Module | File | Purpose |
-|--------|------|---------|
-| Entry point | `index.ts` | HTTP server, WebSocket, wiring, boot sequence, shutdown |
-| Database | `db.ts` | SQLite singleton (`getDb()`), migrations, WAL mode, sqlite-vss |
-| Sim Clock | `sim-clock.ts` | `SimClock` class — sole time source. `now()`, `pause()`, `resume()`, `setSpeed()`, `onTick()` |
-| State Machine | `state-machine.ts` | Explicit `TRANSITION_MAP`, `transitionAgentState()`, activity broadcast |
-| Movement | `movement.ts` | 60Hz render loop (real-time, decoupled from sim clock), `startWalking()`, `retargetWalking()`, proximity detection |
-| Scheduler | `scheduler.ts` | Scheduled jobs runner on sim ticks, daily schedules, missed job recovery, `registerJobHandler()` |
+| Module        | File               | Purpose                                                                                                            |
+| ------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Entry point   | `index.ts`         | HTTP server, WebSocket, wiring, boot sequence, shutdown                                                            |
+| Database      | `db.ts`            | SQLite singleton (`getDb()`), migrations, WAL mode, sqlite-vss                                                     |
+| Sim Clock     | `sim-clock.ts`     | `SimClock` class — sole time source. `now()`, `pause()`, `resume()`, `setSpeed()`, `onTick()`                      |
+| State Machine | `state-machine.ts` | Explicit `TRANSITION_MAP`, `transitionAgentState()`, activity broadcast                                            |
+| Movement      | `movement.ts`      | 60Hz render loop (real-time, decoupled from sim clock), `startWalking()`, `retargetWalking()`, proximity detection |
+| Scheduler     | `scheduler.ts`     | Scheduled jobs runner on sim ticks, daily schedules, missed job recovery, `registerJobHandler()`                   |
 
 ### Agent Intelligence
 
-| Module | File | Purpose |
-|--------|------|---------|
-| Office Manager | `office-manager.ts` | OM singleton, 3 daily sessions (08:05, 13:05, 17:00), context builder, user message injection |
-| Team Manager | `team-manager.ts` | TM trigger-based sessions (desk arrival, task complete, blocker), team-scoped context |
-| Context Assembly | `context-assembly.ts` | `buildSessionContext()` — async, vector similarity memory search, role-filtered tools |
-| Session Recorder | `session-recorder.ts` | `SessionRecorder` class wraps provider sessions, records to DB, broadcasts events |
-| Provider Manager | `providers/manager.ts` | Provider abstraction — reads settings, per-agent overrides |
-| Claude Agent SDK | `providers/claude-agent-sdk.ts` | `ClaudeAgentSdkProvider` — wraps Agent SDK `query()` |
-| Lightweight Query | `providers/lightweight.ts` | `lightweightQuery()` — haiku, maxTurns 1, no tools |
+| Module            | File                            | Purpose                                                                                       |
+| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| Office Manager    | `office-manager.ts`             | OM singleton, 3 daily sessions (08:05, 13:05, 17:00), context builder, user message injection |
+| Team Manager      | `team-manager.ts`               | TM trigger-based sessions (desk arrival, task complete, blocker), team-scoped context         |
+| Context Assembly  | `context-assembly.ts`           | `buildSessionContext()` — async, vector similarity memory search, role-filtered tools         |
+| Session Recorder  | `session-recorder.ts`           | `SessionRecorder` class wraps provider sessions, records to DB, broadcasts events             |
+| Provider Manager  | `providers/manager.ts`          | Provider abstraction — reads settings, per-agent overrides                                    |
+| Claude Agent SDK  | `providers/claude-agent-sdk.ts` | `ClaudeAgentSdkProvider` — wraps Agent SDK `query()`                                          |
+| Lightweight Query | `providers/lightweight.ts`      | `lightweightQuery()` — haiku, maxTurns 1, no tools                                            |
 
 ### Memory and Context
 
-| Module | File | Purpose |
-|--------|------|---------|
-| Memory Compression | `memory-compression.ts` | End-of-day and task-completion compression, summary generation via LLM |
-| Embeddings | `embeddings.ts` | @huggingface/transformers, 384-dim vectors (all-MiniLM-L6-v2) |
-| Context Monitor | `context-monitor.ts` | Token tracking per session, 80% TM alert, 95% force-compress |
-| Idle Checker | `idle-checker.ts` | 30 sim min idle timeout triggers TM check-in |
-| Hung Detector | `hung-session-detector.ts` | 30 sim min without tool call — interrupt, Blocked, TM escalation |
+| Module             | File                       | Purpose                                                                |
+| ------------------ | -------------------------- | ---------------------------------------------------------------------- |
+| Memory Compression | `memory-compression.ts`    | End-of-day and task-completion compression, summary generation via LLM |
+| Embeddings         | `embeddings.ts`            | @huggingface/transformers, 384-dim vectors (all-MiniLM-L6-v2)          |
+| Context Monitor    | `context-monitor.ts`       | Token tracking per session, 80% TM alert, 95% force-compress           |
+| Idle Checker       | `idle-checker.ts`          | 30 sim min idle timeout triggers TM check-in                           |
+| Hung Detector      | `hung-session-detector.ts` | 30 sim min without tool call — interrupt, Blocked, TM escalation       |
 
 ### Handlers (MCP Tool Implementations)
 
-| Module | File | Purpose |
-|--------|------|---------|
-| Agent Management | `handlers/agent-management.ts` | hire_agent, fire_agent, create_team, assign_agent_to_team |
-| Communication | `handlers/communication.ts` | speak (proximity enforced), send_to_manager (walk-then-speak) |
-| Task System | `handlers/task-system.ts` | create_task, begin_task, complete_task, report_blocker |
-| Git Operations | `handlers/git-operations.ts` | create_project, create_worktree, commit_work, open/review/merge PR |
-| Blocker Handlers | `handlers/blocker-handlers.ts` | resolve_blocker, escalate_to_om, mark_blocker_user_facing |
+| Module           | File                           | Purpose                                                            |
+| ---------------- | ------------------------------ | ------------------------------------------------------------------ |
+| Agent Management | `handlers/agent-management.ts` | hire_agent, fire_agent, create_team, assign_agent_to_team          |
+| Communication    | `handlers/communication.ts`    | speak (proximity enforced), send_to_manager (walk-then-speak)      |
+| Task System      | `handlers/task-system.ts`      | create_task, begin_task, complete_task, report_blocker             |
+| Git Operations   | `handlers/git-operations.ts`   | create_project, create_worktree, commit_work, open/review/merge PR |
+| Blocker Handlers | `handlers/blocker-handlers.ts` | resolve_blocker, escalate_to_om, mark_blocker_user_facing          |
 
 ### Support
 
-| Module | File | Purpose |
-|--------|------|---------|
-| MCP Server | `mcp/server.ts` | Per-session MCP server instances, tool routing, permission checks |
-| Tool Registry | `mcp/tool-registry.ts` | All 29 tool definitions with Zod v4 schemas |
-| Blockers | `blockers.ts` | Blocker lifecycle, escalation history, resolution |
-| Meetings | `meetings.ts` | Physical arrival gating, meeting session spawning, post-meeting cleanup |
-| Personas | `personas.ts` | Fetch from agency-agents GitHub repo, parse, store |
+| Module        | File                   | Purpose                                                                 |
+| ------------- | ---------------------- | ----------------------------------------------------------------------- |
+| MCP Server    | `mcp/server.ts`        | Per-session MCP server instances, tool routing, permission checks       |
+| Tool Registry | `mcp/tool-registry.ts` | All 29 tool definitions with Zod v4 schemas                             |
+| Blockers      | `blockers.ts`          | Blocker lifecycle, escalation history, resolution                       |
+| Meetings      | `meetings.ts`          | Physical arrival gating, meeting session spawning, post-meeting cleanup |
+| Personas      | `personas.ts`          | Fetch from agency-agents GitHub repo, parse, store                      |
 
 ## Client Components
 
 ### Hooks
 
-| Hook | Purpose |
-|------|---------|
-| `useWebSocket` | WS connection with exponential backoff reconnection, tick/state tracking, `subscribe()` pattern |
-| `useAgents` | Agent render state from REST + WS position updates, activity icons, re-fetch on reconnect |
-| `useOfficeLayout` | Fetches office layout, desks, meeting rooms from REST |
-| `useChatBubbles` | Tracks speak events, auto-expires bubbles after 6s |
+| Hook              | Purpose                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `useWebSocket`    | WS connection with exponential backoff reconnection, tick/state tracking, `subscribe()` pattern |
+| `useAgents`       | Agent render state from REST + WS position updates, activity icons, re-fetch on reconnect       |
+| `useOfficeLayout` | Fetches office layout, desks, meeting rooms from REST                                           |
+| `useChatBubbles`  | Tracks speak events, auto-expires bubbles after 6s                                              |
 
 ### Components
 
-| Component | Purpose |
-|-----------|---------|
-| `OfficeScene` | R3F Canvas with floor, walls, desks, meeting rooms, agents, chat bubbles |
-| `AgentCapsule` | Team-colored capsule mesh, lerp interpolation, idle bobbing, activity icons, blocked indicator |
-| `HUD` | Sim time, play/pause, speed selector, panel toggle buttons, connection status |
-| `SidePanel` | Right panel on agent click — Chat Log, Sessions (live tool calls), Details tabs |
-| `ConversationsPanel` | Left panel — searchable conversation list with full transcripts |
-| `DiffViewerPanel` | Left panel — project/worktree/PR browser with diff rendering |
-| `SchedulePanel` | Left panel — timeline of scheduled jobs + real-time activity log |
-| `BlockedAgentModal` | Centered modal for blocked agents — escalation chain, resolution button |
-| `ErrorBoundary` | Class component wrapping major UI sections with crash recovery |
+| Component            | Purpose                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------- |
+| `OfficeScene`        | R3F Canvas with floor, walls, desks, meeting rooms, agents, chat bubbles                       |
+| `AgentCapsule`       | Team-colored capsule mesh, lerp interpolation, idle bobbing, activity icons, blocked indicator |
+| `HUD`                | Sim time, play/pause, speed selector, panel toggle buttons, connection status                  |
+| `SidePanel`          | Right panel on agent click — Chat Log, Sessions (live tool calls), Details tabs                |
+| `ConversationsPanel` | Left panel — searchable conversation list with full transcripts                                |
+| `DiffViewerPanel`    | Left panel — project/worktree/PR browser with diff rendering                                   |
+| `SchedulePanel`      | Left panel — timeline of scheduled jobs + real-time activity log                               |
+| `BlockedAgentModal`  | Centered modal for blocked agents — escalation chain, resolution button                        |
+| `ErrorBoundary`      | Class component wrapping major UI sections with crash recovery                                 |
 
 ## Key Implementation Details
 
