@@ -16,8 +16,10 @@ interface OfficeSceneProps {
   selectedAgentId: string | null;
   selectedRoomId: string | null;
   highlightAgentId?: string | null;
+  deskAssignMode?: { agentId: string; teamId: string | null } | null;
   onAgentClick: (agentId: string) => void;
   onRoomClick: (roomId: string) => void;
+  onDeskClick?: (deskId: string) => void;
   onBackgroundClick: () => void;
 }
 
@@ -28,8 +30,10 @@ export function OfficeScene({
   selectedAgentId,
   selectedRoomId,
   highlightAgentId,
+  deskAssignMode,
   onAgentClick,
   onRoomClick,
+  onDeskClick,
   onBackgroundClick,
 }: OfficeSceneProps) {
   return (
@@ -54,7 +58,13 @@ export function OfficeScene({
       {/* Office geometry */}
       <OfficeFloor layout={layout} />
       <OfficeWalls layout={layout} />
-      <OfficeFurniture layout={layout} selectedRoomId={selectedRoomId} onRoomClick={onRoomClick} />
+      <OfficeFurniture
+        layout={layout}
+        selectedRoomId={selectedRoomId}
+        onRoomClick={onRoomClick}
+        deskAssignMode={deskAssignMode}
+        onDeskClick={onDeskClick}
+      />
 
       {/* Agents */}
       <AgentLayer

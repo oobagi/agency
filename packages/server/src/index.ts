@@ -4,7 +4,21 @@ import { initDb, getDb, closeDb } from './db.js';
 import { SimClock } from './sim-clock.js';
 import { handleMcpRequest, closeMcpSessions, setSimClock } from './mcp/server.js';
 import { fetchAndStorePersonas, getPersonas, refreshPersonas } from './personas.js';
-import { getAgents, getAgent, getTeams, getTeam, getDesks } from './handlers/agent-management.js';
+import {
+  getAgents,
+  getAgent,
+  getTeams,
+  getTeam,
+  getDesks,
+  getAvailableDesks,
+  handleAssignDesk,
+  repositionUnassignedAgents,
+  handleHireAgent,
+  handleFireAgent,
+  handleCreateTeam,
+  handleAssignAgentToTeam,
+  deleteTeam,
+} from './handlers/agent-management.js';
 import {
   setSessionBroadcast,
   getSessionsForAgent,
@@ -112,6 +126,9 @@ function restoreStateOnBoot(): void {
   for (const row of persistentAgents) {
     console.log(`[restore] ${row.count} agent(s) preserved in ${row.state} state`);
   }
+
+  // Reposition unassigned agents into the onboarding room grid
+  repositionUnassignedAgents();
 }
 
 restoreStateOnBoot();
@@ -270,8 +287,21 @@ const server = http.createServer(async (req, res) => {
     return json(res, team);
   }
 
+  if (url?.match(/^\/api\/teams\/[^/]+$/) && method === 'DELETE') {
+    const teamId = url.split('/')[3];
+    const result = deleteTeam(teamId);
+    if (!result.success) return json(res, { error: result.error }, 400);
+    return json(res, { deleted: true, teamId });
+  }
+
   if (url === '/api/desks' && method === 'GET') {
     return json(res, getDesks());
+  }
+
+  if (url?.startsWith('/api/desks/available') && method === 'GET') {
+    const parsedUrl = new URL(url, `http://localhost:${PORT}`);
+    const teamId = parsedUrl.searchParams.get('team_id') ?? undefined;
+    return json(res, getAvailableDesks(teamId));
   }
 
   if (url?.match(/^\/api\/teams\/[^/]+\/desks$/) && method === 'GET') {
@@ -464,11 +494,113 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── Management endpoints (user actions) ──────────────────────────
+  if (url === '/api/agents/hire' && method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const personaId = body.persona_id;
+      const role = body.role;
+      if (typeof personaId !== 'string' || !personaId.trim()) {
+        return json(res, { error: 'persona_id is required' }, 400);
+      }
+      const result = await handleHireAgent({ persona_id: personaId, role }, 'user', () =>
+        clock.now(),
+      );
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (result.isError) return json(res, data, 400);
+      broadcastWs({
+        type: 'agent_hired',
+        agentId: data.agent_id,
+        name: data.name,
+        role: role ?? 'agent',
+      });
+      return json(res, data, 201);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/fire$/) && method === 'POST') {
+    try {
+      const agentId = url.split('/')[3];
+      const result = await handleFireAgent({ agent_id: agentId }, 'user', () => clock.now());
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (result.isError) return json(res, data, 400);
+      broadcastWs({ type: 'agent_fired', agentId });
+      return json(res, data);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
+  }
+
+  if (url === '/api/teams' && method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const { name, color } = body;
+      if (!name || !color) return json(res, { error: 'name and color are required' }, 400);
+      const result = await handleCreateTeam({ name, color }, 'user', () => clock.now());
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (result.isError) return json(res, data, 400);
+      return json(res, data, 201);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/assign-team$/) && method === 'POST') {
+    try {
+      const agentId = url.split('/')[3];
+      const body = JSON.parse(await readBody(req));
+      const teamId = body.team_id;
+      if (!teamId) return json(res, { error: 'team_id is required' }, 400);
+      const result = await handleAssignAgentToTeam(
+        { agent_id: agentId, team_id: teamId },
+        'user',
+        () => clock.now(),
+      );
+      const data = JSON.parse((result.content[0] as { text: string }).text);
+      if (result.isError) return json(res, data, 400);
+      broadcastWs({ type: 'agent_updated', agentId });
+      return json(res, data);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
+  }
+
+  if (url?.match(/^\/api\/agents\/[^/]+\/assign-desk$/) && method === 'POST') {
+    try {
+      const agentId = url.split('/')[3];
+      const body = JSON.parse(await readBody(req));
+      const deskId = body.desk_id;
+      if (!deskId) return json(res, { error: 'desk_id is required' }, 400);
+      const result = handleAssignDesk(agentId, deskId);
+      if (!result.success) return json(res, { error: result.error }, 400);
+      broadcastWs({ type: 'agent_updated', agentId });
+      return json(res, { assigned: true, agentId, deskId, desk: result.desk });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
+  }
+
   json(res, { status: 'ok' });
 });
 
 // WebSocket server attached to the HTTP server
 const wss = new WebSocketServer({ server });
+
+function broadcastWs(data: Record<string, unknown>): void {
+  const message = JSON.stringify(data);
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+}
 
 // ── Session event subscriptions ───────────────────────────────────
 // Clients can subscribe to live session events for specific agents.

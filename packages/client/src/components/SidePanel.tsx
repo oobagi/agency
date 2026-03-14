@@ -56,6 +56,9 @@ interface SidePanelProps {
   subscribe: (handler: (msg: WSMessage) => void) => () => void;
   onboarding?: boolean;
   onMessageSent?: () => void;
+  deskAssignMode?: boolean;
+  onEnterDeskAssignMode?: (agentId: string) => void;
+  onCancelDeskAssign?: () => void;
 }
 
 type Tab = 'chat' | 'sessions' | 'details';
@@ -235,6 +238,9 @@ export function SidePanel({
   subscribe,
   onboarding,
   onMessageSent,
+  deskAssignMode,
+  onEnterDeskAssignMode,
+  onCancelDeskAssign,
 }: SidePanelProps) {
   const [tab, setTab] = useState<Tab>('chat');
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -292,9 +298,25 @@ export function SidePanel({
       .catch(() => {});
   }, [expandedSession]);
 
-  // Live session updates via WebSocket
+  // Live chat + session updates via WebSocket
   useEffect(() => {
     return subscribe((msg) => {
+      // Live chat: append agent speak events to chat log
+      if (msg.type === 'speak' && msg.agentId === agentId) {
+        setChatLogs((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            speaker_id: msg.agentId as string,
+            speaker_type: 'agent',
+            speaker_name: msg.agentName as string,
+            message: msg.message as string,
+            sim_time: new Date().toISOString(),
+          },
+        ]);
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
+
       if (msg.type === 'session_event' && msg.agentId === agentId) {
         const event = msg.event as {
           type: string;
@@ -397,6 +419,40 @@ export function SidePanel({
             </>
           )}
         </div>
+        {/* Desk assignment controls */}
+        {agent && agent.role !== 'office_manager' && (
+          <div style={{ marginTop: '6px' }}>
+            {deskAssignMode ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#f6ad55', fontSize: '10px' }}>
+                  Click a desk to assign...
+                </span>
+                <button
+                  style={{ ...S.closeBtn, fontSize: '10px', color: '#f56565' }}
+                  onClick={onCancelDeskAssign}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                style={{
+                  background: '#2d2d4a',
+                  color: '#e2e8f0',
+                  border: '1px solid #444466',
+                  borderRadius: '4px',
+                  padding: '3px 8px',
+                  cursor: 'pointer',
+                  fontFamily: 'monospace',
+                  fontSize: '10px',
+                }}
+                onClick={() => onEnterDeskAssignMode?.(agentId)}
+              >
+                {agent.desk_id ? 'Reassign Desk' : 'Assign Desk'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -523,6 +579,31 @@ export function SidePanel({
                 {agent.persona?.length > 500 ? '...' : ''}
               </div>
             </div>
+            {agent.role !== 'office_manager' && (
+              <div
+                style={{ marginTop: '16px', borderTop: '1px solid #333355', paddingTop: '12px' }}
+              >
+                <button
+                  style={{
+                    background: '#742a2a',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '6px 14px',
+                    cursor: 'pointer',
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                  }}
+                  onClick={async () => {
+                    if (!confirm(`Fire ${agent.name}? This cannot be undone.`)) return;
+                    const res = await fetch(`/api/agents/${agent.id}/fire`, { method: 'POST' });
+                    if (res.ok) onClose();
+                  }}
+                >
+                  Fire Agent
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

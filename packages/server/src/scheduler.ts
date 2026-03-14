@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
 import { onAgentStateChange } from './team-manager.js';
+import { startWalking } from './movement.js';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -73,7 +74,28 @@ function handleArrive(agentId: string, _payload: Record<string, unknown>, _simTi
   // Arriving is valid from Departing (next day) or if agent was just hired (Idle on first day)
   if (state === 'Departing' || state === 'Idle') {
     setAgentState(agentId, 'Arriving');
-    console.log(`[scheduler] ${agentId} → Arriving`);
+
+    // Place agent at the entrance, then walk to their desk
+    const db = getDb();
+    const agent = db.prepare('SELECT desk_id FROM agents WHERE id = ?').get(agentId) as
+      | { desk_id: string | null }
+      | undefined;
+
+    if (agent?.desk_id) {
+      const desk = db
+        .prepare('SELECT position_x, position_z FROM desks WHERE id = ?')
+        .get(agent.desk_id) as { position_x: number; position_z: number } | undefined;
+
+      if (desk) {
+        // Move to entrance first, then walk to desk
+        db.prepare('UPDATE agents SET position_x = 0, position_z = -19 WHERE id = ?').run(agentId);
+        startWalking(agentId, desk.position_x, desk.position_z, 'desk');
+        console.log(`[scheduler] ${agentId} → Arriving, walking to desk`);
+        return true;
+      }
+    }
+
+    console.log(`[scheduler] ${agentId} → Arriving (no desk)`);
     return true;
   }
 
@@ -118,9 +140,27 @@ function handleReturnFromLunch(
   if (!state) return false;
 
   if (state === 'Break') {
-    // Transition Break → Walking (heading back to desk)
+    // Walk back to desk after lunch
+    const db = getDb();
+    const agent = db.prepare('SELECT desk_id FROM agents WHERE id = ?').get(agentId) as
+      | { desk_id: string | null }
+      | undefined;
+
+    if (agent?.desk_id) {
+      const desk = db
+        .prepare('SELECT position_x, position_z FROM desks WHERE id = ?')
+        .get(agent.desk_id) as { position_x: number; position_z: number } | undefined;
+
+      if (desk) {
+        startWalking(agentId, desk.position_x, desk.position_z, 'desk');
+        console.log(`[scheduler] ${agentId} → Walking to desk (return from lunch)`);
+        return true;
+      }
+    }
+
+    // No desk — just set Walking
     setAgentState(agentId, 'Walking');
-    console.log(`[scheduler] ${agentId} → Walking (return from lunch)`);
+    console.log(`[scheduler] ${agentId} → Walking (return from lunch, no desk)`);
     return true;
   }
 
@@ -135,8 +175,15 @@ function handleDepart(agentId: string, _payload: Record<string, unknown>, _simTi
   // Valid transitions to Departing: from Break, Idle
   const canDepart = ['Break', 'Idle'];
   if (canDepart.includes(state)) {
-    setAgentState(agentId, 'Departing');
-    console.log(`[scheduler] ${agentId} → Departing`);
+    // Walk to the exit, then transition to Departing on arrival
+    const walkResult = startWalking(agentId, 0, -19, 'exit', () => {
+      setAgentState(agentId, 'Departing');
+    });
+    if (walkResult.isError) {
+      // Fallback: just set state directly
+      setAgentState(agentId, 'Departing');
+    }
+    console.log(`[scheduler] ${agentId} → Walking to exit (departing)`);
     return true;
   }
 

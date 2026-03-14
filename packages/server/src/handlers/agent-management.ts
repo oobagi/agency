@@ -24,6 +24,67 @@ const TEAM_COLORS = [
   '#F97316', // orange
 ];
 
+// ── Onboarding room grid positions ──────────────────────────────────
+// New hires spawn in a grid inside the onboarding room instead of stacking at (0,0,0)
+const ONBOARDING_CENTER_X = -15;
+const ONBOARDING_CENTER_Z = 15;
+const ONBOARDING_GRID_SPACING = 1.8;
+const ONBOARDING_GRID_COLS = 4;
+
+function getOnboardingGridPosition(): { x: number; z: number } {
+  const db = getDb();
+  const count = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as cnt FROM agents
+         WHERE desk_id IS NULL AND fired_at IS NULL AND role != 'office_manager'`,
+      )
+      .get() as { cnt: number }
+  ).cnt;
+
+  const col = count % ONBOARDING_GRID_COLS;
+  const row = Math.floor(count / ONBOARDING_GRID_COLS);
+
+  // Grid starts from top-left of room, offset from center
+  const startX = ONBOARDING_CENTER_X - ((ONBOARDING_GRID_COLS - 1) * ONBOARDING_GRID_SPACING) / 2;
+  const startZ = ONBOARDING_CENTER_Z - 2; // slightly above center
+
+  return {
+    x: startX + col * ONBOARDING_GRID_SPACING,
+    z: startZ + row * ONBOARDING_GRID_SPACING,
+  };
+}
+
+/** Reposition all unassigned agents into the onboarding grid. Called on boot. */
+export function repositionUnassignedAgents(): void {
+  const db = getDb();
+  const unassigned = db
+    .prepare(
+      `SELECT id FROM agents
+       WHERE desk_id IS NULL AND fired_at IS NULL AND role != 'office_manager'
+       ORDER BY created_at ASC`,
+    )
+    .all() as Array<{ id: string }>;
+
+  if (unassigned.length === 0) return;
+
+  const startX = ONBOARDING_CENTER_X - ((ONBOARDING_GRID_COLS - 1) * ONBOARDING_GRID_SPACING) / 2;
+  const startZ = ONBOARDING_CENTER_Z - 2;
+
+  for (let i = 0; i < unassigned.length; i++) {
+    const col = i % ONBOARDING_GRID_COLS;
+    const row = Math.floor(i / ONBOARDING_GRID_COLS);
+    const x = startX + col * ONBOARDING_GRID_SPACING;
+    const z = startZ + row * ONBOARDING_GRID_SPACING;
+    db.prepare('UPDATE agents SET position_x = ?, position_z = ? WHERE id = ?').run(
+      x,
+      z,
+      unassigned[i].id,
+    );
+  }
+  console.log(`[restore] Positioned ${unassigned.length} unassigned agent(s) in onboarding room`);
+}
+
 // ── hire_agent ─────────────────────────────────────────────────────
 
 export async function handleHireAgent(
@@ -59,10 +120,11 @@ export async function handleHireAgent(
   const simTime = simNow().toISOString();
   const role = (args.role as string) === 'team_manager' ? 'team_manager' : 'agent';
 
+  const spawn = getOnboardingGridPosition();
   db.prepare(
     `INSERT INTO agents (id, name, role, persona, team_id, desk_id, state, position_x, position_y, position_z, hired_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, NULL, 'Idle', 0, 0, 0, ?, ?, ?)`,
-  ).run(agentId, persona.name, role, persona.system_prompt, simTime, now, now);
+     VALUES (?, ?, ?, ?, NULL, NULL, 'Idle', ?, 0, ?, ?, ?, ?)`,
+  ).run(agentId, persona.name, role, persona.system_prompt, spawn.x, spawn.z, simTime, now, now);
 
   // Create the four daily scheduled jobs (arrive, lunch, return, depart)
   createDailyScheduleForAgent(agentId, simNow());
@@ -365,6 +427,126 @@ export function getDesks(teamId?: string): unknown[] {
        LEFT JOIN teams t ON d.team_id = t.id`,
     )
     .all();
+}
+
+// ── assign desk (user action) ──────────────────────────────────────
+
+export function handleAssignDesk(
+  agentId: string,
+  deskId: string,
+): { success: boolean; error?: string; desk?: { x: number; z: number } } {
+  const db = getDb();
+
+  const agent = db
+    .prepare('SELECT id, name, desk_id, team_id FROM agents WHERE id = ? AND fired_at IS NULL')
+    .get(agentId) as
+    | { id: string; name: string; desk_id: string | null; team_id: string | null }
+    | undefined;
+
+  if (!agent) return { success: false, error: 'Agent not found or has been fired' };
+
+  const desk = db
+    .prepare('SELECT id, position_x, position_z, agent_id, team_id FROM desks WHERE id = ?')
+    .get(deskId) as
+    | {
+        id: string;
+        position_x: number;
+        position_z: number;
+        agent_id: string | null;
+        team_id: string | null;
+      }
+    | undefined;
+
+  if (!desk) return { success: false, error: 'Desk not found' };
+
+  if (desk.agent_id && desk.agent_id !== agentId) {
+    return { success: false, error: 'Desk is already occupied' };
+  }
+
+  const now = new Date().toISOString();
+
+  const assignTx = db.transaction(() => {
+    // Free old desk if agent had one
+    if (agent.desk_id) {
+      db.prepare('UPDATE desks SET agent_id = NULL WHERE id = ?').run(agent.desk_id);
+    }
+
+    // Assign agent to desk and update position
+    db.prepare(
+      `UPDATE agents SET desk_id = ?, position_x = ?, position_y = 0, position_z = ?,
+       team_id = COALESCE(?, team_id), updated_at = ? WHERE id = ?`,
+    ).run(deskId, desk.position_x, desk.position_z, desk.team_id, now, agentId);
+
+    // Mark desk as occupied
+    db.prepare('UPDATE desks SET agent_id = ? WHERE id = ?').run(agentId, deskId);
+  });
+
+  assignTx();
+
+  console.log(
+    `[assign_desk] Assigned "${agent.name}" to desk ${deskId} at (${desk.position_x}, ${desk.position_z})`,
+  );
+
+  return { success: true, desk: { x: desk.position_x, z: desk.position_z } };
+}
+
+export function getAvailableDesks(teamId?: string): unknown[] {
+  const db = getDb();
+  if (teamId) {
+    return db
+      .prepare(
+        `SELECT d.*, t.name as team_name, t.color as team_color
+         FROM desks d
+         LEFT JOIN teams t ON d.team_id = t.id
+         WHERE d.agent_id IS NULL AND d.team_id = ?`,
+      )
+      .all(teamId);
+  }
+  return db
+    .prepare(
+      `SELECT d.*, t.name as team_name, t.color as team_color
+       FROM desks d
+       LEFT JOIN teams t ON d.team_id = t.id
+       WHERE d.agent_id IS NULL`,
+    )
+    .all();
+}
+
+// ── delete team (user action) ──────────────────────────────────────
+
+export function deleteTeam(teamId: string): { success: boolean; error?: string } {
+  const db = getDb();
+
+  const team = db.prepare('SELECT id, name FROM teams WHERE id = ?').get(teamId) as
+    | { id: string; name: string }
+    | undefined;
+
+  if (!team) return { success: false, error: 'Team not found' };
+
+  // Check for active agents still on this team
+  const activeAgents = (
+    db
+      .prepare('SELECT COUNT(*) as cnt FROM agents WHERE team_id = ? AND fired_at IS NULL')
+      .get(teamId) as { cnt: number }
+  ).cnt;
+
+  if (activeAgents > 0) {
+    return {
+      success: false,
+      error: `Cannot delete team "${team.name}" — ${activeAgents} active agent(s) still assigned. Reassign or fire them first.`,
+    };
+  }
+
+  const deleteTx = db.transaction(() => {
+    // Free desks
+    db.prepare('DELETE FROM desks WHERE team_id = ?').run(teamId);
+    // Delete team
+    db.prepare('DELETE FROM teams WHERE id = ?').run(teamId);
+  });
+
+  deleteTx();
+  console.log(`[delete_team] Deleted team "${team.name}" (${teamId})`);
+  return { success: true };
 }
 
 /** Exported for use by other modules that need the palette */

@@ -31,6 +31,8 @@ Available tools include all manager-only tools: hire_agent, fire_agent, create_t
 
 When you hire an agent, they know NOTHING — only their persona. They must be briefed by their Team Manager before they can do meaningful work.
 
+After hiring agents, walk to the Onboarding Room (use walk_to_meeting_room with room_id "room-onboarding") to greet and brief new hires. Then assign them to a team using assign_agent_to_team — this automatically places them at a desk in the team's block. Teams are seated together in desk rows.
+
 Be decisive and autonomous. Do not wait for instructions. Evaluate the state of things and act.`;
 
 // ── Sim clock accessor ─────────────────────────────────────────────
@@ -259,6 +261,24 @@ function buildOMContext(omId: string): string {
     );
   } else {
     sections.push('## Agents\nNo other agents exist. Consider hiring some.');
+  }
+
+  // Agents in onboarding (no team/desk)
+  const onboardingAgents = db
+    .prepare(
+      `SELECT id, name, role FROM agents
+       WHERE desk_id IS NULL AND team_id IS NULL AND fired_at IS NULL AND role != 'office_manager'
+       ORDER BY created_at ASC`,
+    )
+    .all() as Array<{ id: string; name: string; role: string }>;
+  if (onboardingAgents.length > 0) {
+    sections.push(
+      '## Agents in Onboarding Room\n' +
+        'These agents have been hired but are not yet assigned to a team. ' +
+        'Walk to the Onboarding Room (room_id: "room-onboarding") to greet them, ' +
+        'then assign them to a team.\n' +
+        onboardingAgents.map((a) => `- **${a.name}** (${a.id}) — role: ${a.role}`).join('\n'),
+    );
   }
 
   // Unresolved blockers (from blockers table, showing escalation details)

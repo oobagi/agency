@@ -9,8 +9,8 @@ const ARRIVAL_THRESHOLD = 0.3; // distance to consider "arrived"
 const RENDER_INTERVAL_MS = 16; // ~60 Hz for smooth client interpolation
 const PROXIMITY_RADIUS = 2.5; // units — agents within this can hear speak
 
-// Exit position (agents walk here to depart)
-const EXIT_POSITION = { x: 0, y: 0, z: 0 };
+// Exit position — south wall center ("front door")
+const EXIT_POSITION = { x: 0, y: 0, z: -19 };
 
 // ── Types ──────────────────────────────────────────────────────────
 

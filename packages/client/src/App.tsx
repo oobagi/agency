@@ -11,6 +11,7 @@ import { OnboardingDialogue } from './components/WelcomeOverlay';
 import { ConversationsPanel } from './components/ConversationsPanel';
 import { DiffViewerPanel } from './components/DiffViewerPanel';
 import { SchedulePanel } from './components/SchedulePanel';
+import { ManagementPanel } from './components/ManagementPanel';
 import { BlockedAgentModal } from './components/BlockedAgentModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -39,7 +40,7 @@ const styles = {
   },
 };
 
-type LeftPanel = 'conversations' | 'projects' | 'schedule' | null;
+type LeftPanel = 'conversations' | 'projects' | 'schedule' | 'manage' | null;
 
 export function App() {
   const { connected, simState, updateSimState, subscribe } = useWebSocket();
@@ -49,6 +50,10 @@ export function App() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [leftPanel, setLeftPanel] = useState<LeftPanel>(null);
+  const [deskAssignMode, setDeskAssignMode] = useState<{
+    agentId: string;
+    teamId: string | null;
+  } | null>(null);
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>(() =>
     localStorage.getItem(ONBOARDED_KEY) === '1' ? 'done' : 'intro',
   );
@@ -82,6 +87,7 @@ export function App() {
 
   const handleAgentClick = useCallback(
     (agentId: string) => {
+      if (deskAssignMode) return; // Don't switch agents during desk assign
       setSelectedAgentId(agentId);
       setSelectedRoomId(null);
       // If user clicked the OM during the click_om step, advance
@@ -89,7 +95,7 @@ export function App() {
         advanceOnboarding();
       }
     },
-    [onboardingStep, omAgent, advanceOnboarding],
+    [onboardingStep, omAgent, advanceOnboarding, deskAssignMode],
   );
 
   const handleMessageSent = useCallback(() => {
@@ -106,11 +112,51 @@ export function App() {
   const handleClose = useCallback(() => {
     setSelectedAgentId(null);
     setSelectedRoomId(null);
+    setDeskAssignMode(null);
   }, []);
 
   const togglePanel = useCallback((panel: LeftPanel) => {
     setLeftPanel((prev) => (prev === panel ? null : panel));
   }, []);
+
+  const handleEnterDeskAssignMode = useCallback(
+    (agentId: string) => {
+      // Look up the agent's team from the agents map
+      const agent = agents.get(agentId);
+      setDeskAssignMode({ agentId, teamId: agent?.teamColor ? null : null });
+      // Fetch the actual team_id
+      fetch(`/api/agents/${agentId}`)
+        .then((r) => r.json())
+        .then((a) => {
+          setDeskAssignMode({ agentId, teamId: a.team_id ?? null });
+        })
+        .catch(() => {});
+    },
+    [agents],
+  );
+
+  const handleDeskClick = useCallback(
+    async (deskId: string) => {
+      if (!deskAssignMode) return;
+      const res = await fetch(`/api/agents/${deskAssignMode.agentId}/assign-desk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ desk_id: deskId }),
+      });
+      if (res.ok) {
+        setDeskAssignMode(null);
+      }
+    },
+    [deskAssignMode],
+  );
+
+  const handleBackgroundClick = useCallback(() => {
+    if (deskAssignMode) {
+      setDeskAssignMode(null);
+      return;
+    }
+    handleClose();
+  }, [deskAssignMode, handleClose]);
 
   if (error) {
     return (
@@ -140,6 +186,8 @@ export function App() {
         onToggleProjects={() => togglePanel('projects')}
         showSchedule={leftPanel === 'schedule'}
         onToggleSchedule={() => togglePanel('schedule')}
+        showManage={leftPanel === 'manage'}
+        onToggleManage={() => togglePanel('manage')}
       />
       <ErrorBoundary fallbackLabel="3D Viewport">
         <OfficeScene
@@ -149,9 +197,11 @@ export function App() {
           selectedAgentId={selectedAgentId}
           selectedRoomId={selectedRoomId}
           highlightAgentId={onboarding && !selectedAgentId ? (omAgent?.id ?? null) : null}
+          deskAssignMode={deskAssignMode}
           onAgentClick={handleAgentClick}
           onRoomClick={handleRoomClick}
-          onBackgroundClick={handleClose}
+          onDeskClick={handleDeskClick}
+          onBackgroundClick={handleBackgroundClick}
         />
       </ErrorBoundary>
       {leftPanel === 'conversations' && (
@@ -173,6 +223,11 @@ export function App() {
           />
         </ErrorBoundary>
       )}
+      {leftPanel === 'manage' && (
+        <ErrorBoundary fallbackLabel="Management">
+          <ManagementPanel onClose={() => togglePanel('manage')} />
+        </ErrorBoundary>
+      )}
       {selectedAgentId && (
         <ErrorBoundary fallbackLabel="Agent Panel">
           <SidePanel
@@ -181,6 +236,9 @@ export function App() {
             subscribe={subscribe}
             onboarding={showingOMPanel}
             onMessageSent={showingOMPanel ? handleMessageSent : undefined}
+            deskAssignMode={deskAssignMode?.agentId === selectedAgentId}
+            onEnterDeskAssignMode={handleEnterDeskAssignMode}
+            onCancelDeskAssign={() => setDeskAssignMode(null)}
           />
         </ErrorBoundary>
       )}
