@@ -137,11 +137,11 @@ export async function handleReplyToUser(
   const simTime = simNow().toISOString();
   const now = new Date().toISOString();
 
-  // Record in chat_logs for this agent (speaker_type = 'agent', visible in SidePanel)
+  // Record in chat_logs for this agent (speaker_type = 'dm' — visible in SidePanel DM view)
   const chatLogId = crypto.randomUUID();
   db.prepare(
     'INSERT INTO chat_logs (id, agent_id, speaker_id, speaker_type, message, sim_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).run(chatLogId, callerAgentId, callerAgentId, 'agent', message, simTime, now);
+  ).run(chatLogId, callerAgentId, callerAgentId, 'dm', message, simTime, now);
 
   // Broadcast as a chat_log event (not speak — speak is for agent-to-agent proximity chat)
   broadcastChatLogFn({
@@ -149,7 +149,7 @@ export async function handleReplyToUser(
     entry: {
       id: chatLogId,
       speaker_id: callerAgentId,
-      speaker_type: 'agent',
+      speaker_type: 'dm',
       speaker_name: agent.name,
       message,
       sim_time: simTime,

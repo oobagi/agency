@@ -7,10 +7,6 @@ import { createDailyScheduleForAgent, removeScheduleForAgent } from '../schedule
 // Desks are arranged in rows. Each team gets a block of desks.
 // We pre-allocate a pool of desks when the server seeds the office.
 const DESKS_PER_TEAM_BLOCK = 8;
-const DESK_SPACING_X = 3;
-const DESK_SPACING_Z = 3;
-const DESK_START_X = 5;
-const DESK_START_Z = 5;
 
 // Team color palette — visually distinct, avoids red (reserved for Blocked)
 const TEAM_COLORS = [
@@ -337,23 +333,24 @@ export async function handleAssignAgentToTeam(
 function allocateDesksForTeam(teamId: string): void {
   const db = getDb();
 
-  // Count existing team blocks to determine row placement
-  const teamCount = (
-    db
-      .prepare('SELECT COUNT(DISTINCT team_id) as cnt FROM desks WHERE team_id IS NOT NULL')
-      .get() as {
-      cnt: number;
-    }
-  ).cnt;
+  // Claim up to DESKS_PER_TEAM_BLOCK unassigned desks for this team.
+  // Desks are pre-seeded at OM init in safe positions (northern grid).
+  const available = db
+    .prepare(
+      `SELECT id FROM desks WHERE team_id IS NULL AND agent_id IS NULL
+       ORDER BY position_z ASC, position_x ASC
+       LIMIT ?`,
+    )
+    .all(DESKS_PER_TEAM_BLOCK) as Array<{ id: string }>;
 
-  const rowZ = DESK_START_Z + teamCount * DESK_SPACING_Z * 2;
+  for (const desk of available) {
+    db.prepare('UPDATE desks SET team_id = ? WHERE id = ?').run(teamId, desk.id);
+  }
 
-  for (let i = 0; i < DESKS_PER_TEAM_BLOCK; i++) {
-    const deskId = crypto.randomUUID();
-    const x = DESK_START_X + i * DESK_SPACING_X;
-    db.prepare(
-      'INSERT INTO desks (id, position_x, position_y, position_z, team_id) VALUES (?, ?, 0, ?, ?)',
-    ).run(deskId, x, rowZ, teamId);
+  if (available.length < DESKS_PER_TEAM_BLOCK) {
+    console.warn(
+      `[create_team] Only ${available.length} unassigned desks available (wanted ${DESKS_PER_TEAM_BLOCK})`,
+    );
   }
 }
 
@@ -538,8 +535,8 @@ export function deleteTeam(teamId: string): { success: boolean; error?: string }
   }
 
   const deleteTx = db.transaction(() => {
-    // Free desks
-    db.prepare('DELETE FROM desks WHERE team_id = ?').run(teamId);
+    // Return desks to the unassigned pool (don't delete — they're pre-seeded)
+    db.prepare('UPDATE desks SET team_id = NULL, agent_id = NULL WHERE team_id = ?').run(teamId);
     // Delete team
     db.prepare('DELETE FROM teams WHERE id = ?').run(teamId);
   });
