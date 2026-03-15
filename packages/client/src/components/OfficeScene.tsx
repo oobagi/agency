@@ -1,5 +1,7 @@
-import { Canvas } from '@react-three/fiber';
+import { useRef, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
 import { OfficeFloor } from './OfficeFloor';
 import { OfficeWalls } from './OfficeWalls';
 import { OfficeFurniture } from './OfficeFurniture';
@@ -8,6 +10,63 @@ import { ChatBubbleLayer } from './ChatBubbleLayer';
 import type { OfficeLayout } from '../hooks/useOfficeLayout';
 import type { AgentRenderState } from '../hooks/useAgents';
 import type { ChatBubble } from '../hooks/useChatBubbles';
+
+const PAN_SPEED = 20;
+const _forward = new THREE.Vector3();
+const _right = new THREE.Vector3();
+
+function WASDControls({
+  controlsRef,
+}: {
+  controlsRef: React.RefObject<{ target: THREE.Vector3; update: () => void } | null>;
+}) {
+  const { camera } = useThree();
+  const keys = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      // Skip when typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      keys.current.add(e.key.toLowerCase());
+    };
+    const onUp = (e: KeyboardEvent) => {
+      keys.current.delete(e.key.toLowerCase());
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, []);
+
+  useFrame((_, delta) => {
+    const controls = controlsRef.current;
+    if (!controls || keys.current.size === 0) return;
+
+    // Get camera's forward/right projected onto the XZ plane
+    camera.getWorldDirection(_forward);
+    _forward.y = 0;
+    _forward.normalize();
+    _right.crossVectors(_forward, camera.up).normalize();
+
+    const move = new THREE.Vector3();
+    if (keys.current.has('w')) move.add(_forward);
+    if (keys.current.has('s')) move.sub(_forward);
+    if (keys.current.has('a')) move.sub(_right);
+    if (keys.current.has('d')) move.add(_right);
+
+    if (move.lengthSq() === 0) return;
+    move.normalize().multiplyScalar(PAN_SPEED * delta);
+
+    camera.position.add(move);
+    controls.target.add(move);
+    controls.update();
+  });
+
+  return null;
+}
 
 interface OfficeSceneProps {
   layout: OfficeLayout;
@@ -36,6 +95,9 @@ export function OfficeScene({
   onDeskClick,
   onBackgroundClick,
 }: OfficeSceneProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null);
+
   return (
     <Canvas
       camera={{ position: [30, 25, 30], fov: 50, near: 0.1, far: 200 }}
@@ -49,11 +111,13 @@ export function OfficeScene({
 
       {/* Camera controls */}
       <OrbitControls
+        ref={controlsRef}
         target={[5, 0, 8]}
         minDistance={5}
         maxDistance={80}
         maxPolarAngle={Math.PI / 2.1}
       />
+      <WASDControls controlsRef={controlsRef} />
 
       {/* Office geometry */}
       <OfficeFloor layout={layout} />
