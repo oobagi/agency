@@ -58,9 +58,10 @@ export const TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
   // ── Communication tools ─────────────────────────────────────────
   speak: {
     description:
-      'Say something to nearby agents. Only agents within proximity radius will hear you.',
+      'Say something to a specific agent. You must walk to them first using walk_to_agent.',
     inputSchema: z.object({
       message: z.string().describe('The message to speak'),
+      target_agent_id: z.string().describe('ID of the agent you are speaking to').optional(),
     }),
     managerOnly: false,
   },

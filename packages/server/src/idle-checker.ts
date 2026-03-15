@@ -1,12 +1,21 @@
 import { getDb } from './db.js';
 import { triggerTMDeskArrival } from './team-manager.js';
+import { getActiveSessionForAgent } from './session-recorder.js';
+import { triggerAgentContinuationSession } from './office-manager.js';
 
 // ── Idle check-in config ───────────────────────────────────────────
 
-const IDLE_CHECKIN_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 sim hours in ms (~2 real min at 1x)
+const IDLE_CHECKIN_THRESHOLD_MS = 30 * 60 * 1000; // 30 sim minutes in ms
+
+// ── Stuck work-state config ────────────────────────────────────────
+
+const STUCK_WORK_THRESHOLD_MS = 5 * 60 * 1000; // 5 sim minutes in ms
 
 // Track when each agent entered Idle state (sim time)
 const idleStartTimes = new Map<string, number>();
+
+// Track when each agent was first seen stuck in a work state without a session
+const stuckStartTimes = new Map<string, number>();
 
 // ── Sim clock accessor (kept for consistency with other modules) ───
 
@@ -75,6 +84,55 @@ export function processIdleChecks(simTime: Date): void {
     const stillIdle = idleAgents.find((a) => a.id === agentId);
     if (!stillIdle) {
       idleStartTimes.delete(agentId);
+    }
+  }
+}
+
+// ── Process stuck work-state agents on each tick ────────────────────
+
+export function processStuckWorkChecks(simTime: Date): void {
+  const db = getDb();
+
+  // Find regular agents in work states (Programming/Researching/Reviewing) with no active session
+  const workingAgents = db
+    .prepare(
+      `SELECT a.id FROM agents a
+       WHERE a.role = 'agent' AND a.state IN ('Programming', 'Researching', 'Reviewing')
+         AND a.fired_at IS NULL`,
+    )
+    .all() as Array<{ id: string }>;
+
+  const simTimeMs = simTime.getTime();
+
+  for (const agent of workingAgents) {
+    // Skip if agent has an active session
+    if (getActiveSessionForAgent(agent.id)) {
+      stuckStartTimes.delete(agent.id);
+      continue;
+    }
+
+    if (!stuckStartTimes.has(agent.id)) {
+      stuckStartTimes.set(agent.id, simTimeMs);
+      continue;
+    }
+
+    const stuckSince = stuckStartTimes.get(agent.id)!;
+    const stuckDuration = simTimeMs - stuckSince;
+
+    if (stuckDuration >= STUCK_WORK_THRESHOLD_MS) {
+      console.log(
+        `[idle-checker] Agent ${agent.id} stuck in work state for ${Math.round(stuckDuration / 60000)}m without session, triggering continuation`,
+      );
+      triggerAgentContinuationSession(agent.id);
+      stuckStartTimes.set(agent.id, simTimeMs);
+    }
+  }
+
+  // Clean up: remove entries for agents no longer stuck
+  for (const [agentId] of stuckStartTimes) {
+    const stillStuck = workingAgents.find((a) => a.id === agentId);
+    if (!stillStuck) {
+      stuckStartTimes.delete(agentId);
     }
   }
 }

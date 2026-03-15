@@ -18,7 +18,13 @@ interface HUDProps {
   onboarding?: boolean;
 }
 
-const SPEEDS = [1, 2, 5, 10];
+const SPEEDS = [1, 30, 60];
+
+const SKIP_TARGETS = [
+  { label: 'Morning', hour: 8 },
+  { label: 'Break', hour: 12 },
+  { label: 'Night', hour: 17 },
+];
 
 const styles = {
   container: {
@@ -67,6 +73,11 @@ const styles = {
     cursor: 'pointer',
     fontFamily: 'monospace',
     fontSize: '12px',
+  },
+  divider: {
+    color: '#444466',
+    margin: '0 4px',
+    userSelect: 'none' as const,
   },
   dot: (connected: boolean) => ({
     width: '8px',
@@ -125,6 +136,27 @@ export function HUD({
     [onUpdateSimState],
   );
 
+  const skipTo = useCallback(
+    async (hour: number) => {
+      const current = new Date(simState.simTime);
+      const target = new Date(current);
+      target.setUTCHours(hour, 0, 0, 0);
+      // If target is in the past today, jump to tomorrow
+      if (target.getTime() <= current.getTime()) {
+        target.setUTCDate(target.getUTCDate() + 1);
+      }
+      const res = await fetch('/api/sim/set-time', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ simTime: target.toISOString() }),
+      });
+      if (res.ok) {
+        onUpdateSimState({ simTime: target.toISOString() });
+      }
+    },
+    [simState.simTime, onUpdateSimState],
+  );
+
   return (
     <div style={styles.container}>
       <div style={styles.time}>
@@ -159,6 +191,8 @@ export function HUD({
           Manage
         </button>
 
+        <span style={styles.divider}>|</span>
+
         <button
           style={{
             ...styles.button,
@@ -183,6 +217,25 @@ export function HUD({
             {s}x
           </button>
         ))}
+
+        <span style={styles.divider}>|</span>
+
+        {SKIP_TARGETS.map((t) => (
+          <button
+            key={t.label}
+            style={{
+              ...styles.button,
+              ...(onboarding ? { opacity: 0.3, cursor: 'not-allowed' } : {}),
+            }}
+            onClick={onboarding ? undefined : () => skipTo(t.hour)}
+            disabled={onboarding}
+            title={`Skip to ${String(t.hour).padStart(2, '0')}:00`}
+          >
+            {t.label}
+          </button>
+        ))}
+
+        <span style={styles.divider}>|</span>
 
         <button
           style={showSettings ? styles.activeButton : styles.button}

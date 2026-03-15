@@ -174,6 +174,12 @@ export async function searchSimilarMemories(
 
   if (isVssAvailable()) {
     try {
+      // Guard: FAISS crashes with 'k > 0' assertion if the vss table is empty
+      const rowCount = db.prepare('SELECT COUNT(*) as cnt FROM agent_memory').get() as {
+        cnt: number;
+      };
+      if (rowCount.cnt === 0) return [];
+
       const queryEmbedding = await generateEmbedding(queryText);
       const queryBuf = embeddingToBuffer(queryEmbedding);
 

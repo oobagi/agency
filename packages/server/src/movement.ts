@@ -7,8 +7,6 @@ import type { AgentState } from './state-machine.js';
 const MOVEMENT_SPEED = 5; // units per sim-second
 const ARRIVAL_THRESHOLD = 0.3; // distance to consider "arrived"
 const RENDER_INTERVAL_MS = 16; // ~60 Hz for smooth client interpolation
-const PROXIMITY_RADIUS = 2.5; // units — agents within this can hear speak
-
 // Exit position — south wall center ("front door")
 const EXIT_POSITION = { x: 0, y: 0, z: -19 };
 
@@ -258,55 +256,6 @@ export async function handleSetState(
   return mcpOk({ state, message: `Transitioned to ${state}.` });
 }
 
-// ── Proximity detection ────────────────────────────────────────────
-
-export function getAgentsInProximity(
-  agentId: string,
-): Array<{ id: string; name: string; distance: number }> {
-  const db = getDb();
-
-  const agent = db
-    .prepare('SELECT position_x, position_z FROM agents WHERE id = ?')
-    .get(agentId) as { position_x: number; position_z: number } | undefined;
-
-  if (!agent) return [];
-
-  const nearby = db
-    .prepare(
-      `SELECT id, name, position_x, position_z FROM agents
-       WHERE id != ? AND fired_at IS NULL`,
-    )
-    .all(agentId) as Array<{ id: string; name: string; position_x: number; position_z: number }>;
-
-  return nearby
-    .map((a) => {
-      const dx = a.position_x - agent.position_x;
-      const dz = a.position_z - agent.position_z;
-      const distance = Math.sqrt(dx * dx + dz * dz);
-      return { id: a.id, name: a.name, distance };
-    })
-    .filter((a) => a.distance <= PROXIMITY_RADIUS)
-    .sort((a, b) => a.distance - b.distance);
-}
-
-export function isWithinProximity(agentId: string, targetAgentId: string): boolean {
-  const db = getDb();
-
-  const agent = db
-    .prepare('SELECT position_x, position_z FROM agents WHERE id = ?')
-    .get(agentId) as { position_x: number; position_z: number } | undefined;
-
-  const target = db
-    .prepare('SELECT position_x, position_z FROM agents WHERE id = ?')
-    .get(targetAgentId) as { position_x: number; position_z: number } | undefined;
-
-  if (!agent || !target) return false;
-
-  const dx = agent.position_x - target.position_x;
-  const dz = agent.position_z - target.position_z;
-  return Math.sqrt(dx * dx + dz * dz) <= PROXIMITY_RADIUS;
-}
-
 // ── Internal helpers ───────────────────────────────────────────────
 
 export function startWalking(
@@ -369,4 +318,4 @@ export function retargetWalking(
   return true;
 }
 
-export { PROXIMITY_RADIUS, MOVEMENT_SPEED };
+export { MOVEMENT_SPEED };

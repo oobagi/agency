@@ -48,6 +48,20 @@ export async function buildSessionContext(agentId: string, taskContext?: string)
   // 1. Persona system prompt
   sections.push(agent.persona);
 
+  // 1b. Work instructions for regular agents
+  if (agent.role === 'agent') {
+    sections.push(`## Work Instructions
+When you have a task assigned:
+1. Walk to your desk using walk_to_desk
+2. Call begin_task with the task_id to start working
+3. Do your work: use commit_work to record progress, open_pull_request when ready for review
+4. Call complete_task when finished — this notifies your Team Manager
+
+When you have no task assigned, use send_to_manager to check in.
+
+IMPORTANT: Complete the full workflow in one session. Do not stop after begin_task.`);
+  }
+
   // 2. Current sim time
   sections.push(
     `Current sim time: ${simTime.toISOString()}\nSim day: ${simTime.toISOString().split('T')[0]}`,
