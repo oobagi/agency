@@ -45,6 +45,8 @@ Blocker handling:
 - If you can resolve a blocker (e.g., reassign work, provide guidance), call resolve_blocker with the blocker_id.
 - If you cannot resolve it, call escalate_to_om with the blocker_id, then physically walk to the Office Manager (walk_to_agent) and speak to explain the situation.
 
+Do NOT re-brief an agent who had a session within the last 30 sim minutes. They may still be processing their work. Check the "Recently Active Agents" section before walking to anyone.
+
 Be proactive. Check on idle agents, review pending PRs, and keep your team productive.`;
 }
 
@@ -274,6 +276,35 @@ function buildTMContext(
     );
   } else {
     sections.push('## Team Members\nNo team members yet.');
+  }
+
+  // Recently active agents (briefing cooldown — do not re-brief)
+  const thirtyMinAgo = new Date(simTime.getTime() - 30 * 60 * 1000).toISOString();
+  const idleMembers = members.filter((m) => m.state === 'Idle');
+  if (idleMembers.length > 0) {
+    const recentlyActive: string[] = [];
+    for (const m of idleMembers) {
+      const recentSession = db
+        .prepare(
+          `SELECT id, trigger, started_at FROM sessions
+           WHERE agent_id = ? AND started_at > ?
+           ORDER BY started_at DESC LIMIT 1`,
+        )
+        .get(m.id, thirtyMinAgo) as
+        | { id: string; trigger: string | null; started_at: string }
+        | undefined;
+      if (recentSession) {
+        recentlyActive.push(
+          `- **${m.name}** (${m.id}) — last session: "${recentSession.trigger ?? 'unknown'}" at ${recentSession.started_at}`,
+        );
+      }
+    }
+    if (recentlyActive.length > 0) {
+      sections.push(
+        '## Recently Active Agents (do NOT re-brief)\nThese idle agents had a session within the last 30 sim minutes and may still be processing:\n' +
+          recentlyActive.join('\n'),
+      );
+    }
   }
 
   // Team tasks

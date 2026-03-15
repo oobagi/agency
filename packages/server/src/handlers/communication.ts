@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from '../db.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { getAgentsInProximity, isWithinProximity, startWalking } from '../movement.js';
+import { startWalking } from '../movement.js';
 import { transitionAgentState } from '../state-machine.js';
 import { triggerAgentBriefingSession } from '../office-manager.js';
 
@@ -66,14 +66,22 @@ export async function handleSpeak(
 
   if (!speaker) return error('Speaker agent not found');
 
-  // Enforce proximity — reject if no agents nearby
-  const nearby = getAgentsInProximity(callerAgentId);
+  // Determine listeners: explicit target or all agents at same location
+  const targetAgentId = args.target_agent_id as string | undefined;
+  let listeners: Array<{ id: string; name: string }>;
 
-  if (nearby.length === 0) {
-    console.warn(
-      `[speak] Proximity violation: ${speaker.name} (${callerAgentId}) spoke with no agents nearby`,
-    );
-    return error('No agents within proximity. You must walk to an agent before speaking.');
+  if (targetAgentId) {
+    const target = db
+      .prepare('SELECT id, name FROM agents WHERE id = ? AND fired_at IS NULL')
+      .get(targetAgentId) as { id: string; name: string } | undefined;
+    if (!target) return error(`Target agent "${targetAgentId}" not found`);
+    listeners = [target];
+  } else {
+    // No explicit target — deliver to all non-fired agents except self
+    // (meetings, group settings where multiple agents are present)
+    listeners = db
+      .prepare('SELECT id, name FROM agents WHERE id != ? AND fired_at IS NULL')
+      .all(callerAgentId) as Array<{ id: string; name: string }>;
   }
 
   const simTime = simNow().toISOString();
@@ -85,7 +93,7 @@ export async function handleSpeak(
   ).run(crypto.randomUUID(), callerAgentId, callerAgentId, 'agent', message, simTime, now);
 
   // Record in chat_logs for each listener
-  for (const listener of nearby) {
+  for (const listener of listeners) {
     db.prepare(
       'INSERT INTO chat_logs (id, agent_id, speaker_id, speaker_type, message, sim_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
     ).run(crypto.randomUUID(), listener.id, callerAgentId, 'agent', message, simTime, now);
@@ -94,7 +102,7 @@ export async function handleSpeak(
   // Record conversation
   recordConversation(
     callerAgentId,
-    nearby.map((n) => n.id),
+    listeners.map((n) => n.id),
     message,
     simNow,
   );
@@ -104,21 +112,21 @@ export async function handleSpeak(
     agentId: callerAgentId,
     agentName: speaker.name,
     message,
-    listeners: nearby.map((n) => ({ id: n.id, name: n.name })),
+    listeners: listeners.map((n) => ({ id: n.id, name: n.name })),
   });
 
   console.log(
-    `[speak] ${speaker.name} → ${nearby.map((n) => n.name).join(', ')}: "${message.slice(0, 80)}"`,
+    `[speak] ${speaker.name} → ${listeners.map((n) => n.name).join(', ')}: "${message.slice(0, 80)}"`,
   );
 
   // Trigger sessions for idle regular agents who received the message
-  for (const listener of nearby) {
+  for (const listener of listeners) {
     triggerAgentBriefingSession(listener.id, speaker.name);
   }
 
   return ok({
-    message: `Message delivered to ${nearby.length} agent(s) within proximity.`,
-    listeners: nearby.map((n) => n.name),
+    message: `Message delivered to ${listeners.length} agent(s).`,
+    listeners: listeners.map((n) => n.name),
   });
 }
 
@@ -172,7 +180,7 @@ export async function handleReplyToUser(
 export async function handleSendToManager(
   args: Record<string, unknown>,
   callerAgentId: string,
-  simNow: () => Date,
+  _simNow: () => Date,
 ): Promise<CallToolResult> {
   const message = args.message as string;
   if (!message?.trim()) return error('message is required');
@@ -203,18 +211,6 @@ export async function handleSendToManager(
     | undefined;
 
   if (!manager) return error('Team manager not found or has been fired');
-
-  // If already within proximity, deliver immediately
-  if (isWithinProximity(callerAgentId, manager.id)) {
-    return deliverMessageToAgent(
-      callerAgentId,
-      agent.name,
-      manager.id,
-      manager.name,
-      message,
-      simNow,
-    );
-  }
 
   // Walk to manager, deliver on arrival via callback
   const walkResult = startWalking(
@@ -255,14 +251,6 @@ function deliverMessageToAgent(
   const simTime = simNow().toISOString();
   const now = new Date().toISOString();
 
-  // Verify proximity (enforced even after walk — manager may have moved)
-  if (!isWithinProximity(speakerId, targetId)) {
-    console.warn(
-      `[send_to_manager] Proximity violation: ${speakerName} not within proximity of ${targetName} after arrival`,
-    );
-    return error(`Not within proximity of ${targetName}. They may have moved. Try again.`);
-  }
-
   // Record in chat_logs for both agents
   db.prepare(
     'INSERT INTO chat_logs (id, agent_id, speaker_id, speaker_type, message, sim_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -284,6 +272,9 @@ function deliverMessageToAgent(
   });
 
   console.log(`[send_to_manager] ${speakerName} → ${targetName}: "${message.slice(0, 80)}"`);
+
+  // Trigger session for idle regular agents who received the message
+  triggerAgentBriefingSession(targetId, speakerName);
 
   return ok({
     message: `Message delivered to ${targetName}.`,

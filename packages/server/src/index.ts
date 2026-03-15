@@ -45,7 +45,11 @@ import {
 } from './office-manager.js';
 import { setTeamManagerSimClock } from './team-manager.js';
 import { setContextSimClock } from './context-assembly.js';
-import { setIdleCheckerSimClock, processIdleChecks } from './idle-checker.js';
+import {
+  setIdleCheckerSimClock,
+  processIdleChecks,
+  processStuckWorkChecks,
+} from './idle-checker.js';
 import {
   setMovementSimClock,
   setPositionBroadcast,
@@ -76,6 +80,7 @@ import { setContextMonitorSimClock, setContextAlertCallback } from './context-mo
 import { triggerTMBlockerReport } from './team-manager.js';
 import {
   setBlockerBroadcast,
+  setBlockerResolutionBroadcast,
   getOpenBlockers,
   getBlocker,
   getBlockersForAgent,
@@ -635,6 +640,7 @@ const server = http.createServer(async (req, res) => {
 
       if (scope === 'everything') {
         // Wipe all data tables (keep schema/migrations/office_layout/meeting_rooms/desks structure)
+        // Order: children before parents to satisfy FK constraints
         db.transaction(() => {
           db.prepare('DELETE FROM session_tool_calls').run();
           db.prepare('DELETE FROM sessions').run();
@@ -644,14 +650,14 @@ const server = http.createServer(async (req, res) => {
           db.prepare('DELETE FROM chat_logs').run();
           db.prepare('DELETE FROM agent_memory').run();
           db.prepare('DELETE FROM pull_requests').run();
-          db.prepare('DELETE FROM worktrees').run();
-          db.prepare('DELETE FROM tasks').run();
           db.prepare('DELETE FROM blockers').run();
+          db.prepare('DELETE FROM tasks').run();
+          db.prepare('DELETE FROM worktrees').run();
           db.prepare('DELETE FROM job_queue').run();
           db.prepare('DELETE FROM scheduled_jobs').run();
-          // Clear FKs before deleting agents/teams (circular refs)
+          // Clear FKs before deleting agents/teams/projects (circular refs)
           db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
-          db.prepare('UPDATE teams SET manager_id = NULL').run();
+          db.prepare('UPDATE teams SET manager_id = NULL, project_id = NULL').run();
           db.prepare('DELETE FROM agents').run();
           db.prepare('DELETE FROM teams').run();
           db.prepare('DELETE FROM projects').run();
@@ -676,17 +682,17 @@ const server = http.createServer(async (req, res) => {
           db.prepare('DELETE FROM chat_logs').run();
           db.prepare('DELETE FROM agent_memory').run();
           db.prepare('DELETE FROM pull_requests').run();
-          db.prepare('DELETE FROM worktrees').run();
-          db.prepare('DELETE FROM tasks').run();
           db.prepare('DELETE FROM blockers').run();
+          db.prepare('DELETE FROM tasks').run();
+          db.prepare('DELETE FROM worktrees').run();
           db.prepare('DELETE FROM job_queue').run();
           // Remove scheduled jobs for non-OM agents
           if (omId) {
             db.prepare('DELETE FROM scheduled_jobs WHERE agent_id != ?').run(omId);
           }
-          // Clear FKs before deleting agents/teams (circular refs)
+          // Clear FKs before deleting agents/teams/projects (circular refs)
           db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
-          db.prepare('UPDATE teams SET manager_id = NULL').run();
+          db.prepare('UPDATE teams SET manager_id = NULL, project_id = NULL').run();
           // Fire all non-OM agents
           db.prepare("DELETE FROM agents WHERE role != 'office_manager'").run();
           db.prepare('DELETE FROM teams').run();
@@ -839,6 +845,11 @@ setActivityBroadcast((data) => {
   }
 });
 
+// ── Blocker resolution broadcast (agent state updated → WebSocket clients) ──
+setBlockerResolutionBroadcast((data) => {
+  broadcastWs({ type: 'agent_updated', agentId: data.agentId });
+});
+
 // ── Blocker broadcast (user-facing blockers → WebSocket clients) ──
 setBlockerBroadcast((data) => {
   const message = JSON.stringify({ type: 'blocker_user_facing', ...data });
@@ -876,6 +887,9 @@ clock.onTick((simTime) => {
 
   // Check for hung sessions (no tool call for 30+ sim minutes)
   processHungSessionChecks(simTime);
+
+  // Check for agents stuck in work states without an active session
+  processStuckWorkChecks(simTime);
 
   const message = JSON.stringify({
     type: 'tick',

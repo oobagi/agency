@@ -577,7 +577,27 @@ async function spawnAgentSession(agentId: string, trigger?: string): Promise<voi
       model,
     });
 
-    new SessionRecorder(session, provider.name, model, simNowFn, trigger);
+    const recorder = new SessionRecorder(session, provider.name, model, simNowFn, trigger);
+
+    // After session ends, check if agent still has pending work and re-trigger
+    if (agent.role === 'agent') {
+      recorder.onComplete(() => {
+        const postAgent = db
+          .prepare('SELECT state FROM agents WHERE id = ? AND fired_at IS NULL')
+          .get(agentId) as { state: string } | undefined;
+        if (!postAgent || postAgent.state !== 'Idle') return;
+
+        const hasTasks = db
+          .prepare(
+            `SELECT 1 FROM tasks WHERE agent_id = ? AND status IN ('pending', 'in_progress') LIMIT 1`,
+          )
+          .get(agentId);
+        if (!hasTasks) return;
+
+        // Delay to avoid tight loops; claimSessionSlot prevents double-spawns
+        setTimeout(() => triggerAgentContinuationSession(agentId), 2000);
+      });
+    }
   } catch (err) {
     releaseSessionSlot(agentId);
     throw err;
@@ -604,6 +624,30 @@ export function triggerAgentBriefingSession(agentId: string, speakerName: string
   spawnAgentSession(agentId, `Briefing from ${speakerName}`).catch((err) => {
     releaseSessionSlot(agentId);
     console.error(`[briefing] Session failed for ${agentId}:`, err);
+  });
+}
+
+// ── Trigger continuation session for agent with remaining work ─────
+
+export function triggerAgentContinuationSession(agentId: string): void {
+  const db = getDb();
+  const agent = db
+    .prepare('SELECT role, state FROM agents WHERE id = ? AND fired_at IS NULL')
+    .get(agentId) as { role: string; state: string } | undefined;
+
+  // Only trigger for regular agents in a work state or Idle with pending tasks
+  if (!agent || agent.role !== 'agent') return;
+  if (!['Idle', 'Programming', 'Researching', 'Reviewing'].includes(agent.state)) return;
+
+  if (!claimSessionSlot(agentId)) {
+    console.log(`[continuation] Agent ${agentId} already in session, skipping continuation`);
+    return;
+  }
+
+  console.log(`[continuation] Spawning continuation session for ${agentId} (state=${agent.state})`);
+  spawnAgentSession(agentId, 'Work continuation').catch((err) => {
+    releaseSessionSlot(agentId);
+    console.error(`[continuation] Session failed for ${agentId}:`, err);
   });
 }
 

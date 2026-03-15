@@ -42,6 +42,16 @@ export function setBlockerBroadcast(fn: BlockerBroadcastFn): void {
   broadcastFn = fn;
 }
 
+// ── Resolution broadcast (agent state changed → UI update) ─────────
+
+type ResolutionBroadcastFn = (data: { agentId: string }) => void;
+
+let resolutionBroadcastFn: ResolutionBroadcastFn = () => {};
+
+export function setBlockerResolutionBroadcast(fn: ResolutionBroadcastFn): void {
+  resolutionBroadcastFn = fn;
+}
+
 // ── Create a blocker ────────────────────────────────────────────────
 
 export function createBlocker(
@@ -128,6 +138,9 @@ export function resolveBlocker(
       blocker.task_id,
     );
   }
+
+  // Broadcast so the UI updates the agent's state
+  resolutionBroadcastFn({ agentId: blocker.agent_id });
 
   console.log(`[blockers] Resolved ${blockerId} by ${resolver?.name ?? resolvedById}`);
   return { success: true };

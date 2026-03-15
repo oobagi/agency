@@ -102,8 +102,8 @@ export async function handleBeginTask(
 
   if (!task) return error(`Task "${taskId}" not found`);
 
-  if (task.status !== 'pending') {
-    return error(`Task "${task.title}" is ${task.status}, not pending. Cannot begin.`);
+  if (task.status !== 'pending' && task.status !== 'blocked') {
+    return error(`Task "${task.title}" is ${task.status}, not pending or blocked. Cannot begin.`);
   }
 
   // Auto-assign if unassigned, or validate assignment
