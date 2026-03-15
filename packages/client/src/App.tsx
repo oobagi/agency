@@ -210,6 +210,7 @@ export function App() {
         onToggleManage={() => togglePanel('manage')}
         showSettings={leftPanel === 'settings'}
         onToggleSettings={() => togglePanel('settings')}
+        onboarding={onboarding}
       />
       <ErrorBoundary fallbackLabel="3D Viewport">
         <OfficeScene
