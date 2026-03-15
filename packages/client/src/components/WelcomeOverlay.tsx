@@ -228,120 +228,126 @@ const keycapSmall: React.CSSProperties = {
   fontSize: '10px',
 };
 
-function KeycapControlsOverlay({ onTriggered }: { onTriggered: () => void }) {
-  const triggered = useRef(false);
+function CameraControlsChecklist({ onComplete }: { onComplete: () => void }) {
+  const [wasd, setWasd] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [scroll, setScroll] = useState(false);
+  const doneRef = useRef(false);
+
+  // Check completion
+  useEffect(() => {
+    if (wasd && drag && scroll && !doneRef.current) {
+      doneRef.current = true;
+      // Small delay so the user sees the last check tick
+      setTimeout(onComplete, 400);
+    }
+  }, [wasd, drag, scroll, onComplete]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent | MouseEvent | WheelEvent) => {
-      if (triggered.current) return;
+    let dragStart = false;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (['w', 'a', 's', 'd'].includes(e.key.toLowerCase())) setWasd(true);
+    };
+    const onMouseDown = (e: MouseEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
-
-      if (e instanceof KeyboardEvent) {
-        if (!['w', 'a', 's', 'd'].includes(e.key.toLowerCase())) return;
+      if (tag === 'BUTTON' || tag === 'INPUT') return;
+      dragStart = true;
+    };
+    const onMouseUp = () => {
+      if (dragStart) {
+        setDrag(true);
+        dragStart = false;
       }
-
-      triggered.current = true;
-      onTriggered();
     };
+    const onWheel = () => setScroll(true);
 
-    window.addEventListener('keydown', handler);
-    window.addEventListener('mousedown', handler);
-    window.addEventListener('wheel', handler);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('wheel', onWheel);
     return () => {
-      window.removeEventListener('keydown', handler);
-      window.removeEventListener('mousedown', handler);
-      window.removeEventListener('wheel', handler);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('wheel', onWheel);
     };
-  }, [onTriggered]);
+  }, []);
+
+  const checkStyle = (done: boolean): React.CSSProperties => ({
+    color: done ? '#4ade80' : '#555',
+    fontSize: '13px',
+    marginRight: '6px',
+    transition: 'color 0.2s',
+  });
+
+  const rowStyle = (done: boolean): React.CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '6px 0',
+    opacity: done ? 0.5 : 1,
+    transition: 'opacity 0.3s',
+  });
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: '160px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 91,
-        display: 'flex',
-        gap: '32px',
-        alignItems: 'flex-start',
-        pointerEvents: 'none',
-      }}
-    >
-      {/* WASD keys */}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ marginBottom: '4px' }}>
-          <span style={keycap}>W</span>
+    <div style={{ marginTop: '12px' }}>
+      <div style={rowStyle(wasd)}>
+        <span style={checkStyle(wasd)}>{wasd ? '\u2713' : '\u2610'}</span>
+        <div style={{ display: 'flex', gap: '3px' }}>
+          <span style={{ ...keycap, width: '26px', height: '26px', fontSize: '11px' }}>W</span>
+          <span style={{ ...keycap, width: '26px', height: '26px', fontSize: '11px' }}>A</span>
+          <span style={{ ...keycap, width: '26px', height: '26px', fontSize: '11px' }}>S</span>
+          <span style={{ ...keycap, width: '26px', height: '26px', fontSize: '11px' }}>D</span>
         </div>
-        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-          <span style={keycap}>A</span>
-          <span style={keycap}>S</span>
-          <span style={keycap}>D</span>
-        </div>
-        <div
-          style={{ color: '#a0aec0', fontSize: '10px', marginTop: '6px', fontFamily: 'monospace' }}
-        >
-          Move camera
-        </div>
+        <span style={{ color: '#a0aec0', fontSize: '11px' }}>Move camera</span>
       </div>
 
-      {/* Mouse drag */}
-      <div style={{ textAlign: 'center' }}>
+      <div style={rowStyle(drag)}>
+        <span style={checkStyle(drag)}>{drag ? '\u2713' : '\u2610'}</span>
         <div
           style={{
-            width: '40px',
-            height: '56px',
-            border: '2px solid #555577',
-            borderRadius: '12px',
-            margin: '0 auto',
+            width: '22px',
+            height: '30px',
+            border: '1.5px solid #555577',
+            borderRadius: '7px',
             position: 'relative',
             background: 'linear-gradient(180deg, #3a3a5c 0%, #2a2a45 100%)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+            flexShrink: 0,
           }}
         >
-          {/* Mouse button divider */}
           <div
             style={{
               position: 'absolute',
               top: 0,
               left: '50%',
               width: '1px',
-              height: '24px',
+              height: '13px',
               background: '#555577',
             }}
           />
-          {/* Scroll wheel */}
           <div
             style={{
               position: 'absolute',
-              top: '8px',
+              top: '5px',
               left: '50%',
               transform: 'translateX(-50%)',
-              width: '6px',
-              height: '10px',
-              border: '1.5px solid #888',
-              borderRadius: '3px',
+              width: '4px',
+              height: '6px',
+              border: '1px solid #888',
+              borderRadius: '2px',
             }}
           />
         </div>
-        <div
-          style={{ color: '#a0aec0', fontSize: '10px', marginTop: '6px', fontFamily: 'monospace' }}
-        >
-          Drag to rotate
-        </div>
+        <span style={{ color: '#a0aec0', fontSize: '11px' }}>Click and drag to rotate</span>
       </div>
 
-      {/* Scroll to zoom */}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-          <span style={keycapSmall}>Scroll</span>
-        </div>
-        <div
-          style={{ color: '#a0aec0', fontSize: '10px', marginTop: '6px', fontFamily: 'monospace' }}
-        >
-          Zoom in/out
-        </div>
+      <div style={rowStyle(scroll)}>
+        <span style={checkStyle(scroll)}>{scroll ? '\u2713' : '\u2610'}</span>
+        <span style={{ ...keycapSmall, width: '40px', height: '26px', fontSize: '9px' }}>
+          Scroll
+        </span>
+        <span style={{ color: '#a0aec0', fontSize: '11px' }}>Scroll to zoom</span>
       </div>
     </div>
   );
@@ -393,7 +399,6 @@ export function OnboardingDialogue({ step, onAdvance }: OnboardingDialogueProps)
 
   return (
     <>
-      {step === 'camera_controls' && <KeycapControlsOverlay onTriggered={onAdvance} />}
       <div style={S.container}>
         <div style={S.portrait}>
           <CapsulePortrait />
@@ -403,6 +408,7 @@ export function OnboardingDialogue({ step, onAdvance }: OnboardingDialogueProps)
           <div style={S.text}>
             <TypewriterText key={`${step}-${lineIndex}`} text={currentText} />
           </div>
+          {step === 'camera_controls' && <CameraControlsChecklist onComplete={onAdvance} />}
           <div style={S.footer}>
             <button
               style={
