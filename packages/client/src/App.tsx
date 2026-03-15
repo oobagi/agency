@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOfficeLayout } from './hooks/useOfficeLayout';
 import { useAgents } from './hooks/useAgents';
@@ -67,6 +67,21 @@ export function App() {
   }, [agents]);
 
   const onboarding = onboardingStep !== 'done' && agents.size <= 1 && omAgent !== null;
+
+  // On fresh onboarding, set sim time to 08:00 and pause so the user can follow the tutorial
+  const onboardingInitRef = useRef(false);
+  useEffect(() => {
+    if (onboardingStep !== 'intro' || onboardingInitRef.current) return;
+    onboardingInitRef.current = true;
+    const simDate = new Date(simState.simTime);
+    simDate.setUTCHours(8, 0, 0, 0);
+    fetch('/api/sim/set-time', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ simTime: simDate.toISOString() }),
+    }).catch(() => {});
+    fetch('/api/sim/pause', { method: 'POST' }).catch(() => {});
+  }, [onboardingStep, simState.simTime]);
 
   const finishOnboarding = useCallback(() => {
     setOnboardingStep('done');
