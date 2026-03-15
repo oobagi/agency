@@ -451,6 +451,59 @@ export async function handleMergePullRequest(
   });
 }
 
+// ── User-facing project creation ────────────────────────────────────
+
+export async function createUserProject(args: {
+  name: string;
+  path: string;
+  description?: string;
+}): Promise<
+  | { success: true; project: { id: string; name: string; description: string; repo_path: string } }
+  | { success: false; error: string }
+> {
+  const { name, description = '' } = args;
+  const repoPath = args.path;
+
+  if (!name.trim()) return { success: false, error: 'name is required' };
+  if (!repoPath.trim()) return { success: false, error: 'path is required' };
+  if (!path.isAbsolute(repoPath)) return { success: false, error: 'path must be absolute' };
+
+  const db = getDb();
+
+  // Check for duplicate project name
+  const existing = db.prepare('SELECT id FROM projects WHERE name = ?').get(name);
+  if (existing) return { success: false, error: `Project "${name}" already exists` };
+
+  // Create directory if it doesn't exist
+  if (!fs.existsSync(repoPath)) {
+    fs.mkdirSync(repoPath, { recursive: true });
+  }
+
+  // Init git repo if not already a repo
+  const gitDir = path.join(repoPath, '.git');
+  if (!fs.existsSync(gitDir)) {
+    const git = simpleGit(repoPath);
+    await git.init();
+    await git.checkoutLocalBranch('main');
+    await git.raw(['commit', '--allow-empty', '-m', 'Initial commit']);
+  }
+
+  const projectId = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  db.prepare(
+    `INSERT INTO projects (id, name, description, repo_path, default_branch, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'main', ?, ?)`,
+  ).run(projectId, name, description, repoPath, now, now);
+
+  console.log(`[create_project] User created "${name}" (${projectId}) at ${repoPath}`);
+
+  return {
+    success: true,
+    project: { id: projectId, name, description, repo_path: repoPath },
+  };
+}
+
 // ── REST helpers ────────────────────────────────────────────────────
 
 export function getProjects(): unknown[] {

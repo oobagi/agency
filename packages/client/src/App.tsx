@@ -215,7 +215,7 @@ export function App() {
       )}
       {leftPanel === 'projects' && (
         <ErrorBoundary fallbackLabel="Projects">
-          <DiffViewerPanel onClose={() => togglePanel('projects')} />
+          <DiffViewerPanel onClose={() => togglePanel('projects')} subscribe={subscribe} />
         </ErrorBoundary>
       )}
       {leftPanel === 'schedule' && (
