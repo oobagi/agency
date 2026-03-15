@@ -91,7 +91,13 @@ export class SessionRecorder {
   private simNow: () => Date;
   private completionCallbacks: Array<() => void> = [];
 
-  constructor(session: Session, provider: string, model: string, simNow: () => Date) {
+  constructor(
+    session: Session,
+    provider: string,
+    model: string,
+    simNow: () => Date,
+    trigger?: string,
+  ) {
     this.sessionId = session.id;
     this.agentId = session.agentId;
     this.dbSessionId = session.id;
@@ -106,10 +112,19 @@ export class SessionRecorder {
 
     getDb()
       .prepare(
-        `INSERT INTO sessions (id, agent_id, sim_day, provider, model, started_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sessions (id, agent_id, sim_day, provider, model, started_at, trigger, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(this.dbSessionId, this.agentId, simDay, provider, model, simTime.toISOString(), now);
+      .run(
+        this.dbSessionId,
+        this.agentId,
+        simDay,
+        provider,
+        model,
+        simTime.toISOString(),
+        trigger ?? null,
+        now,
+      );
 
     // Track as active and release spawning guard
     activeSessions.set(this.sessionId, {
