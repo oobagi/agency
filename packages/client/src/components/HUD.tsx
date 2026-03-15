@@ -13,6 +13,8 @@ interface HUDProps {
   onToggleSchedule: () => void;
   showManage: boolean;
   onToggleManage: () => void;
+  showSettings: boolean;
+  onToggleSettings: () => void;
 }
 
 const SPEEDS = [1, 2, 5, 10];
@@ -96,6 +98,8 @@ export function HUD({
   onToggleSchedule,
   showManage,
   onToggleManage,
+  showSettings,
+  onToggleSettings,
 }: HUDProps) {
   const togglePause = useCallback(async () => {
     const endpoint = simState.paused ? '/api/sim/resume' : '/api/sim/pause';
@@ -166,6 +170,13 @@ export function HUD({
             {s}x
           </button>
         ))}
+
+        <button
+          style={showSettings ? styles.activeButton : styles.button}
+          onClick={onToggleSettings}
+        >
+          Settings
+        </button>
       </div>
     </div>
   );

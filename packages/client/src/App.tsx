@@ -13,6 +13,7 @@ import { DiffViewerPanel } from './components/DiffViewerPanel';
 import { SchedulePanel } from './components/SchedulePanel';
 import { ManagementPanel } from './components/ManagementPanel';
 import { BlockedAgentModal } from './components/BlockedAgentModal';
+import { SettingsPanel } from './components/SettingsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ONBOARDED_KEY = 'agency_onboarded';
@@ -40,7 +41,7 @@ const styles = {
   },
 };
 
-type LeftPanel = 'conversations' | 'projects' | 'schedule' | 'manage' | null;
+type LeftPanel = 'conversations' | 'projects' | 'schedule' | 'manage' | 'settings' | null;
 
 export function App() {
   const { connected, simState, updateSimState, subscribe } = useWebSocket();
@@ -192,6 +193,8 @@ export function App() {
         onToggleSchedule={() => togglePanel('schedule')}
         showManage={leftPanel === 'manage'}
         onToggleManage={() => togglePanel('manage')}
+        showSettings={leftPanel === 'settings'}
+        onToggleSettings={() => togglePanel('settings')}
       />
       <ErrorBoundary fallbackLabel="3D Viewport">
         <OfficeScene
@@ -230,6 +233,11 @@ export function App() {
       {leftPanel === 'manage' && (
         <ErrorBoundary fallbackLabel="Management">
           <ManagementPanel onClose={() => togglePanel('manage')} />
+        </ErrorBoundary>
+      )}
+      {leftPanel === 'settings' && (
+        <ErrorBoundary fallbackLabel="Settings">
+          <SettingsPanel onClose={() => togglePanel('settings')} />
         </ErrorBoundary>
       )}
       {selectedAgentId && (
