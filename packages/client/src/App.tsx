@@ -18,7 +18,14 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ONBOARDED_KEY = 'agency_onboarded';
 
-type OnboardingStep = 'intro' | 'click_om' | 'assign_desk' | 'send_message' | 'outro' | 'done';
+type OnboardingStep =
+  | 'intro'
+  | 'camera_controls'
+  | 'click_om'
+  | 'assign_desk'
+  | 'send_message'
+  | 'outro'
+  | 'done';
 
 const styles = {
   root: {
@@ -77,7 +84,8 @@ export function App() {
 
   const advanceOnboarding = useCallback(() => {
     setOnboardingStep((prev) => {
-      if (prev === 'intro') return 'click_om';
+      if (prev === 'intro') return 'camera_controls';
+      if (prev === 'camera_controls') return 'click_om';
       if (prev === 'click_om') return 'assign_desk';
       if (prev === 'assign_desk') return 'send_message';
       if (prev === 'send_message') return 'outro';
@@ -279,7 +287,15 @@ export function App() {
       )}
       {onboarding && (
         <OnboardingDialogue
-          step={onboardingStep as 'intro' | 'click_om' | 'assign_desk' | 'send_message' | 'outro'}
+          step={
+            onboardingStep as
+              | 'intro'
+              | 'camera_controls'
+              | 'click_om'
+              | 'assign_desk'
+              | 'send_message'
+              | 'outro'
+          }
           onAdvance={onboardingStep === 'outro' ? finishOnboarding : advanceOnboarding}
         />
       )}
