@@ -41,6 +41,7 @@ interface Session {
   started_at: string;
   ended_at: string | null;
   outcome: string | null;
+  trigger: string | null;
   tool_call_count: number;
 }
 
@@ -495,7 +496,8 @@ export function SidePanel({
                   >
                     <div>
                       <div style={{ fontSize: '11px' }}>
-                        {session.sim_day} {formatTime(session.started_at)}
+                        {session.trigger ?? session.sim_day}{' '}
+                        <span style={{ color: '#a0aec0' }}>{formatTime(session.started_at)}</span>
                       </div>
                       <div style={{ color: '#a0aec0', fontSize: '10px' }}>
                         {session.model} | {session.tool_call_count} tools

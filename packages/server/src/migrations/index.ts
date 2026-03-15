@@ -6,10 +6,11 @@ import * as m004 from './004_seed_meeting_rooms.js';
 import * as m005 from './005_seed_office_layout.js';
 import * as m006 from './006_seed_onboarding_room.js';
 import * as m007 from './007_entrance_gap.js';
+import * as m008 from './008_session_trigger.js';
 
 export interface Migration {
   name: string;
   up: (db: Database.Database) => void;
 }
 
-export const migrations: Migration[] = [m001, m002, m003, m004, m005, m006, m007];
+export const migrations: Migration[] = [m001, m002, m003, m004, m005, m006, m007, m008];

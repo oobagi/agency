@@ -274,7 +274,7 @@ async function startMeetingSession(meeting: PendingMeeting): Promise<void> {
     model,
   });
 
-  const recorder = new SessionRecorder(session, provider.name, model, simNowFn);
+  const recorder = new SessionRecorder(session, provider.name, model, simNowFn, 'Meeting');
 
   // When the session completes (normally or with error), end the meeting
   recorder.onComplete(() => endMeeting(meeting));

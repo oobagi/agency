@@ -105,9 +105,15 @@ export function initOfficeManager(): void {
   }
 
   // Register the three OM session job handlers
-  registerJobHandler('morning_planning', handleOMSession);
-  registerJobHandler('midday_check', handleOMSession);
-  registerJobHandler('eod_review', handleOMSession);
+  registerJobHandler('morning_planning', (agentId, payload, simTime) =>
+    handleOMSession(agentId, payload, simTime, 'Morning planning'),
+  );
+  registerJobHandler('midday_check', (agentId, payload, simTime) =>
+    handleOMSession(agentId, payload, simTime, 'Midday check'),
+  );
+  registerJobHandler('eod_review', (agentId, payload, simTime) =>
+    handleOMSession(agentId, payload, simTime, 'End-of-day review'),
+  );
 
   // Ensure the three OM scheduled jobs exist
   ensureOMScheduledJobs(officeManagerId);
@@ -161,6 +167,7 @@ function handleOMSession(
   agentId: string,
   _payload: Record<string, unknown>,
   _simTime: Date,
+  trigger?: string,
 ): boolean {
   if (!claimSessionSlot(agentId)) {
     console.log(`[office-manager] ${agentId} already has active/spawning session, skipping`);
@@ -168,7 +175,7 @@ function handleOMSession(
   }
 
   // Fire-and-forget: spawn the session asynchronously
-  spawnOMSession(agentId).catch((err) => {
+  spawnOMSession(agentId, trigger).catch((err) => {
     releaseSessionSlot(agentId);
     console.error('[office-manager] Session spawn failed:', err);
   });
@@ -177,7 +184,7 @@ function handleOMSession(
 
 // ── Spawn an Office Manager session ────────────────────────────────
 
-async function spawnOMSession(omId: string): Promise<void> {
+async function spawnOMSession(omId: string, trigger?: string): Promise<void> {
   const provider = providerManager.getProvider(omId);
   const model = providerManager.getModel(omId);
   const context = buildOMContext(omId);
@@ -185,7 +192,7 @@ async function spawnOMSession(omId: string): Promise<void> {
   // All tools the OM can access (general + manager-only)
   const mcpTools = Object.keys(TOOL_DEFINITIONS);
 
-  console.log(`[office-manager] Spawning session (model=${model})`);
+  console.log(`[office-manager] Spawning session (model=${model}, trigger=${trigger ?? 'none'})`);
 
   try {
     const session = await provider.spawnSession({
@@ -198,7 +205,7 @@ async function spawnOMSession(omId: string): Promise<void> {
     });
 
     // Record the session (constructor releases spawning guard)
-    new SessionRecorder(session, provider.name, model, simNowFn);
+    new SessionRecorder(session, provider.name, model, simNowFn, trigger);
   } catch (err) {
     releaseSessionSlot(omId);
     throw err;
@@ -492,19 +499,19 @@ export function triggerUserMessageSession(agentId: string): void {
   }
 
   if (agent.role === 'office_manager') {
-    spawnOMSession(agentId).catch((err) => {
+    spawnOMSession(agentId, 'User message').catch((err) => {
       releaseSessionSlot(agentId);
       console.error('[user-message] OM session failed:', err);
     });
   } else {
-    spawnAgentSession(agentId).catch((err) => {
+    spawnAgentSession(agentId, 'User message').catch((err) => {
       releaseSessionSlot(agentId);
       console.error('[user-message] Agent session failed:', err);
     });
   }
 }
 
-async function spawnAgentSession(agentId: string): Promise<void> {
+async function spawnAgentSession(agentId: string, trigger?: string): Promise<void> {
   const db = getDb();
   const agent = db.prepare('SELECT persona, role FROM agents WHERE id = ?').get(agentId) as
     | { persona: string; role: string }
@@ -534,7 +541,7 @@ async function spawnAgentSession(agentId: string): Promise<void> {
       model,
     });
 
-    new SessionRecorder(session, provider.name, model, simNowFn);
+    new SessionRecorder(session, provider.name, model, simNowFn, trigger);
   } catch (err) {
     releaseSessionSlot(agentId);
     throw err;

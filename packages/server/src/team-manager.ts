@@ -175,8 +175,14 @@ async function spawnTMSession(
       model,
     });
 
-    // Record the session (constructor releases spawning guard)
-    new SessionRecorder(session, provider.name, model, simNowFn);
+    // Record the session with human-readable trigger label
+    const triggerLabels: Record<string, string> = {
+      desk_arrival: 'Desk arrival',
+      task_complete: `Task completed: ${triggerData?.taskTitle ?? ''}`,
+      blocker_report: 'Blocker report',
+    };
+    const triggerLabel = triggerLabels[trigger] ?? trigger;
+    new SessionRecorder(session, provider.name, model, simNowFn, triggerLabel);
   } catch (err) {
     releaseSessionSlot(tmId);
     throw err;
