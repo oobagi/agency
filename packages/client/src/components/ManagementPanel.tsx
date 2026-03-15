@@ -286,6 +286,21 @@ export function ManagementPanel({ onClose }: ManagementPanelProps) {
     [fetchAgents, fetchTeams],
   );
 
+  const fireAgent = useCallback(
+    async (agentId: string, agentName: string) => {
+      if (!confirm(`Fire "${agentName}"? This cannot be undone.`)) return;
+      const res = await fetch(`/api/agents/${agentId}/fire`, { method: 'POST' });
+      if (res.ok) {
+        fetchAgents();
+        fetchTeams();
+      } else {
+        const data = await res.json();
+        alert(data.error ?? 'Failed to fire agent');
+      }
+    },
+    [fetchAgents, fetchTeams],
+  );
+
   const filteredPersonas = personas.filter((p) => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -435,6 +450,12 @@ export function ManagementPanel({ onClose }: ManagementPanelProps) {
                         ))}
                       </select>
                     )}
+                    <button
+                      style={{ ...S.btnDanger, fontSize: '9px', padding: '3px 6px' }}
+                      onClick={() => fireAgent(a.id, a.name)}
+                    >
+                      Fire
+                    </button>
                   </div>
                 ))}
               </>
@@ -460,12 +481,23 @@ export function ManagementPanel({ onClose }: ManagementPanelProps) {
                         fontSize: '10px',
                         padding: '2px 0',
                         color: '#c4b5fd',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                       }}
                     >
-                      {m.name}{' '}
-                      <span style={{ color: '#666' }}>
-                        ({m.role === 'team_manager' ? 'TM' : 'Agent'}, {m.state})
+                      <span>
+                        {m.name}{' '}
+                        <span style={{ color: '#666' }}>
+                          ({m.role === 'team_manager' ? 'TM' : 'Agent'}, {m.state})
+                        </span>
                       </span>
+                      <button
+                        style={{ ...S.btnDanger, fontSize: '8px', padding: '1px 5px' }}
+                        onClick={() => fireAgent(m.id, m.name)}
+                      >
+                        Fire
+                      </button>
                     </div>
                   ))}
                   {members.length === 0 && (
