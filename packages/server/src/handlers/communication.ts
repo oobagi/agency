@@ -3,6 +3,7 @@ import { getDb } from '../db.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { getAgentsInProximity, isWithinProximity, startWalking } from '../movement.js';
 import { transitionAgentState } from '../state-machine.js';
+import { triggerAgentBriefingSession } from '../office-manager.js';
 
 // ── Sim clock accessor (needed for onArrival callbacks) ─────────────
 
@@ -109,6 +110,11 @@ export async function handleSpeak(
   console.log(
     `[speak] ${speaker.name} → ${nearby.map((n) => n.name).join(', ')}: "${message.slice(0, 80)}"`,
   );
+
+  // Trigger sessions for idle regular agents who received the message
+  for (const listener of nearby) {
+    triggerAgentBriefingSession(listener.id, speaker.name);
+  }
 
   return ok({
     message: `Message delivered to ${nearby.length} agent(s) within proximity.`,
