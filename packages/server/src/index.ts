@@ -800,8 +800,11 @@ if (isFreshInstall) {
   console.log('[boot] Fresh install — clock set to 08:00 and paused for onboarding');
 }
 
-// Handle any jobs that were missed while the server was down
-handleMissedJobsOnBoot(clock.now());
+// Handle any jobs that were missed while the server was down (skip on fresh install —
+// there's nothing to catch up on and firing all daily jobs at once causes chaos)
+if (!isFreshInstall) {
+  handleMissedJobsOnBoot(clock.now());
+}
 
 clock.start();
 startMovementLoop();
