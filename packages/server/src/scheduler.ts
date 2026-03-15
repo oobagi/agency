@@ -87,8 +87,9 @@ function handleArrive(agentId: string, _payload: Record<string, unknown>, _simTi
         .get(agent.desk_id) as { position_x: number; position_z: number } | undefined;
 
       if (desk) {
-        // Move to entrance first, then walk to desk
+        // Move to entrance first, broadcast so client sees them there, then walk to desk
         db.prepare('UPDATE agents SET position_x = 0, position_z = -19 WHERE id = ?').run(agentId);
+        broadcastAgentPosition(agentId, 0, 0, -19, 'Arriving');
         startWalking(agentId, desk.position_x, desk.position_z, 'desk');
         console.log(`[scheduler] ${agentId} → Arriving, walking to desk`);
         return true;
