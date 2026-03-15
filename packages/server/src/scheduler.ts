@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { getDb } from './db.js';
 import { onAgentStateChange } from './team-manager.js';
-import { startWalking } from './movement.js';
+import { startWalking, broadcastAgentPosition } from './movement.js';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -185,6 +185,7 @@ function handleDepart(agentId: string, _payload: Record<string, unknown>, _simTi
       db.prepare(
         'UPDATE agents SET position_x = 0, position_y = -10, position_z = -30 WHERE id = ?',
       ).run(agentId);
+      broadcastAgentPosition(agentId, 0, -10, -30, 'Departing');
     });
     if (walkResult.isError) {
       // Fallback: set state and move off-screen directly
@@ -193,6 +194,7 @@ function handleDepart(agentId: string, _payload: Record<string, unknown>, _simTi
       db.prepare(
         'UPDATE agents SET position_x = 0, position_y = -10, position_z = -30 WHERE id = ?',
       ).run(agentId);
+      broadcastAgentPosition(agentId, 0, -10, -30, 'Departing');
     }
     console.log(`[scheduler] ${agentId} → Walking to exit (departing)`);
     return true;
