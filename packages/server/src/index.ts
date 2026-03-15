@@ -621,6 +621,107 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (url === '/api/reset' && method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const scope = body.scope as string;
+      const db = getDb();
+
+      // Pause sim and interrupt all active sessions first
+      clock.pause();
+      for (const id of getAllActiveSessionIds()) {
+        interruptSession(id, 'interrupted', () => clock.now());
+      }
+
+      if (scope === 'everything') {
+        // Wipe all data tables (keep schema/migrations/office_layout/meeting_rooms/desks structure)
+        db.transaction(() => {
+          db.prepare('DELETE FROM session_tool_calls').run();
+          db.prepare('DELETE FROM sessions').run();
+          db.prepare('DELETE FROM conversation_messages').run();
+          db.prepare('DELETE FROM conversation_participants').run();
+          db.prepare('DELETE FROM conversations').run();
+          db.prepare('DELETE FROM chat_logs').run();
+          db.prepare('DELETE FROM agent_memory').run();
+          db.prepare('DELETE FROM pull_requests').run();
+          db.prepare('DELETE FROM worktrees').run();
+          db.prepare('DELETE FROM tasks').run();
+          db.prepare('DELETE FROM blockers').run();
+          db.prepare('DELETE FROM job_queue').run();
+          db.prepare('DELETE FROM scheduled_jobs').run();
+          db.prepare('DELETE FROM agents').run();
+          db.prepare('DELETE FROM teams').run();
+          db.prepare('DELETE FROM projects').run();
+          db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
+        })();
+        // Reset sim time to fresh start
+        clock.setTime(new Date('2026-01-01T08:00:00.000Z'));
+        // Re-init office manager
+        initOfficeManager();
+        broadcastWs({ type: 'reset', scope });
+        return json(res, { reset: true, scope });
+      }
+
+      if (scope === 'agents') {
+        // Fire all agents except OM, clear teams/tasks/sessions
+        const omId = getOfficeManagerId();
+        db.transaction(() => {
+          db.prepare('DELETE FROM session_tool_calls').run();
+          db.prepare('DELETE FROM sessions').run();
+          db.prepare('DELETE FROM conversation_messages').run();
+          db.prepare('DELETE FROM conversation_participants').run();
+          db.prepare('DELETE FROM conversations').run();
+          db.prepare('DELETE FROM chat_logs').run();
+          db.prepare('DELETE FROM agent_memory').run();
+          db.prepare('DELETE FROM pull_requests').run();
+          db.prepare('DELETE FROM worktrees').run();
+          db.prepare('DELETE FROM tasks').run();
+          db.prepare('DELETE FROM blockers').run();
+          db.prepare('DELETE FROM job_queue').run();
+          // Remove scheduled jobs for non-OM agents
+          if (omId) {
+            db.prepare('DELETE FROM scheduled_jobs WHERE agent_id != ?').run(omId);
+          }
+          // Fire all non-OM agents
+          db.prepare("DELETE FROM agents WHERE role != 'office_manager'").run();
+          db.prepare('DELETE FROM teams').run();
+          db.prepare('DELETE FROM projects').run();
+          db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
+        })();
+        repositionUnassignedAgents();
+        broadcastWs({ type: 'reset', scope });
+        return json(res, { reset: true, scope });
+      }
+
+      if (scope === 'conversations') {
+        db.transaction(() => {
+          db.prepare('DELETE FROM conversation_messages').run();
+          db.prepare('DELETE FROM conversation_participants').run();
+          db.prepare('DELETE FROM conversations').run();
+          db.prepare('DELETE FROM chat_logs').run();
+        })();
+        broadcastWs({ type: 'reset', scope });
+        return json(res, { reset: true, scope });
+      }
+
+      if (scope === 'sim_time') {
+        clock.setTime(new Date('2026-01-01T08:00:00.000Z'));
+        clock.resume();
+        broadcastWs({ type: 'reset', scope });
+        return json(res, { reset: true, scope });
+      }
+
+      return json(
+        res,
+        { error: 'Invalid scope. Use: everything, agents, conversations, sim_time' },
+        400,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Reset failed';
+      return json(res, { error: msg }, 500);
+    }
+  }
+
   json(res, { status: 'ok' });
 });
 
