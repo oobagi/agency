@@ -584,6 +584,29 @@ async function spawnAgentSession(agentId: string, trigger?: string): Promise<voi
   }
 }
 
+// ── Trigger session for regular agent after receiving a briefing ──
+
+export function triggerAgentBriefingSession(agentId: string, speakerName: string): void {
+  const db = getDb();
+  const agent = db
+    .prepare('SELECT role, state FROM agents WHERE id = ? AND fired_at IS NULL')
+    .get(agentId) as { role: string; state: string } | undefined;
+
+  // Only trigger for regular agents in Idle state
+  if (!agent || agent.role !== 'agent' || agent.state !== 'Idle') return;
+
+  if (!claimSessionSlot(agentId)) {
+    console.log(`[briefing] Agent ${agentId} already in session, briefing will be in context`);
+    return;
+  }
+
+  console.log(`[briefing] Spawning session for ${agentId} after briefing from ${speakerName}`);
+  spawnAgentSession(agentId, `Briefing from ${speakerName}`).catch((err) => {
+    releaseSessionSlot(agentId);
+    console.error(`[briefing] Session failed for ${agentId}:`, err);
+  });
+}
+
 // ── User message to agent ─────────────────────────────────────────
 
 export function sendUserMessageToAgent(agentId: string, message: string): void {
