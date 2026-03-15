@@ -54,7 +54,8 @@ export function getOfficeManagerId(): string | null {
 
 // ── Initialize Office Manager ──────────────────────────────────────
 
-export function initOfficeManager(): void {
+/** Initialize the OM. Returns true if this is a fresh install (onboarding). */
+export function initOfficeManager(): boolean {
   const db = getDb();
 
   // Check if an Office Manager already exists
@@ -65,59 +66,67 @@ export function initOfficeManager(): void {
   if (existing) {
     officeManagerId = existing.id;
     console.log(`[office-manager] Existing Office Manager: ${officeManagerId}`);
-  } else {
-    // Create the Office Manager
-    officeManagerId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const simTime = simNowFn().toISOString();
-
-    db.prepare(
-      `INSERT INTO agents (id, name, role, persona, state, position_x, position_y, position_z, hired_at, created_at, updated_at)
-       VALUES (?, 'Office Manager', 'office_manager', ?, 'Idle', -15, 0, 15, ?, ?, ?)`,
-    ).run(officeManagerId, OFFICE_MANAGER_PERSONA, simTime, now, now);
-
-    // Seed a grid of desks in the northern half of the office (safe from meeting room walls).
-    // 4 rows x 8 columns = 32 desks, all unassigned. Teams claim these when created.
-    const existingDesks = db
-      .prepare('SELECT COUNT(*) as cnt FROM desks WHERE team_id IS NULL')
-      .get() as { cnt: number };
-    if (existingDesks.cnt === 0) {
-      const deskInsert = db.prepare(
-        'INSERT INTO desks (id, position_x, position_y, position_z, team_id) VALUES (?, ?, 0, ?, NULL)',
-      );
-      const COLS = 8;
-      const ROWS = 4;
-      const START_X = -10;
-      const START_Z = -4;
-      const SPACING_X = 3;
-      const SPACING_Z = -3; // rows go northward (more negative Z)
-      for (let row = 0; row < ROWS; row++) {
-        for (let col = 0; col < COLS; col++) {
-          deskInsert.run(crypto.randomUUID(), START_X + col * SPACING_X, START_Z + row * SPACING_Z);
-        }
-      }
-      console.log(`[office-manager] Seeded ${ROWS * COLS} desks in northern grid`);
-    }
-
-    // Create daily schedule for the Office Manager (standard arrive/lunch/depart)
-    createDailyScheduleForAgent(officeManagerId, simNowFn());
-
-    console.log(`[office-manager] Created Office Manager: ${officeManagerId}`);
+    // Register job handlers + ensure scheduled jobs exist
+    registerOMJobHandlers();
+    ensureOMScheduledJobs(officeManagerId);
+    return false;
   }
 
-  // Register the three OM session job handlers
-  registerJobHandler('morning_planning', (agentId, payload, simTime) =>
-    handleOMSession(agentId, payload, simTime, 'Morning planning'),
-  );
-  registerJobHandler('midday_check', (agentId, payload, simTime) =>
-    handleOMSession(agentId, payload, simTime, 'Midday check'),
-  );
-  registerJobHandler('eod_review', (agentId, payload, simTime) =>
-    handleOMSession(agentId, payload, simTime, 'End-of-day review'),
-  );
+  // Create the Office Manager
+  officeManagerId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const simTime = simNowFn().toISOString();
 
-  // Ensure the three OM scheduled jobs exist
+  db.prepare(
+    `INSERT INTO agents (id, name, role, persona, state, position_x, position_y, position_z, hired_at, created_at, updated_at)
+     VALUES (?, 'Office Manager', 'office_manager', ?, 'Idle', -15, 0, 15, ?, ?, ?)`,
+  ).run(officeManagerId, OFFICE_MANAGER_PERSONA, simTime, now, now);
+
+  // Seed a grid of desks in the northern half of the office (safe from meeting room walls).
+  // 4 rows x 8 columns = 32 desks, all unassigned. Teams claim these when created.
+  const existingDesks = db
+    .prepare('SELECT COUNT(*) as cnt FROM desks WHERE team_id IS NULL')
+    .get() as { cnt: number };
+  if (existingDesks.cnt === 0) {
+    const deskInsert = db.prepare(
+      'INSERT INTO desks (id, position_x, position_y, position_z, team_id) VALUES (?, ?, 0, ?, NULL)',
+    );
+    const COLS = 8;
+    const ROWS = 4;
+    const START_X = -10;
+    const START_Z = -4;
+    const SPACING_X = 3;
+    const SPACING_Z = -3; // rows go northward (more negative Z)
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        deskInsert.run(crypto.randomUUID(), START_X + col * SPACING_X, START_Z + row * SPACING_Z);
+      }
+    }
+    console.log(`[office-manager] Seeded ${ROWS * COLS} desks in northern grid`);
+  }
+
+  // Create daily schedule for the Office Manager (standard arrive/lunch/depart)
+  createDailyScheduleForAgent(officeManagerId, simNowFn());
+
+  console.log(`[office-manager] Created Office Manager: ${officeManagerId}`);
+
+  registerOMJobHandlers();
   ensureOMScheduledJobs(officeManagerId);
+
+  // Fresh install — signal caller to pause clock for onboarding
+  return true;
+}
+
+function registerOMJobHandlers(): void {
+  registerJobHandler('morning_planning', (agentId, payload, st) =>
+    handleOMSession(agentId, payload, st, 'Morning planning'),
+  );
+  registerJobHandler('midday_check', (agentId, payload, st) =>
+    handleOMSession(agentId, payload, st, 'Midday check'),
+  );
+  registerJobHandler('eod_review', (agentId, payload, st) =>
+    handleOMSession(agentId, payload, st, 'End-of-day review'),
+  );
 }
 
 // ── Ensure OM scheduled jobs exist ─────────────────────────────────

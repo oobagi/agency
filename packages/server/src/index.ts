@@ -789,7 +789,16 @@ clock.onTick((simTime) => {
 initMeetingSystem();
 
 // Initialize the Office Manager (creates if not exists, registers scheduled jobs)
-initOfficeManager();
+const isFreshInstall = initOfficeManager();
+
+// Fresh install: set clock to 08:00 and pause for onboarding
+if (isFreshInstall) {
+  const morning = new Date(clock.now());
+  morning.setUTCHours(8, 0, 0, 0);
+  clock.setTime(morning);
+  clock.pause();
+  console.log('[boot] Fresh install — clock set to 08:00 and paused for onboarding');
+}
 
 // Handle any jobs that were missed while the server was down
 handleMissedJobsOnBoot(clock.now());

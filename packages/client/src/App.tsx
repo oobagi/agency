@@ -225,6 +225,7 @@ export function App() {
           onRoomClick={handleRoomClick}
           onDeskClick={handleDeskClick}
           onBackgroundClick={handleBackgroundClick}
+          onboarding={onboarding}
         />
       </ErrorBoundary>
       {leftPanel === 'conversations' && (
