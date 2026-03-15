@@ -649,10 +649,12 @@ const server = http.createServer(async (req, res) => {
           db.prepare('DELETE FROM blockers').run();
           db.prepare('DELETE FROM job_queue').run();
           db.prepare('DELETE FROM scheduled_jobs').run();
+          // Clear FKs before deleting agents/teams (circular refs)
+          db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
+          db.prepare('UPDATE teams SET manager_id = NULL').run();
           db.prepare('DELETE FROM agents').run();
           db.prepare('DELETE FROM teams').run();
           db.prepare('DELETE FROM projects').run();
-          db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
         })();
         // Reset sim time to fresh start
         clock.setTime(new Date('2026-01-01T08:00:00.000Z'));
@@ -682,11 +684,13 @@ const server = http.createServer(async (req, res) => {
           if (omId) {
             db.prepare('DELETE FROM scheduled_jobs WHERE agent_id != ?').run(omId);
           }
+          // Clear FKs before deleting agents/teams (circular refs)
+          db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
+          db.prepare('UPDATE teams SET manager_id = NULL').run();
           // Fire all non-OM agents
           db.prepare("DELETE FROM agents WHERE role != 'office_manager'").run();
           db.prepare('DELETE FROM teams').run();
           db.prepare('DELETE FROM projects').run();
-          db.prepare('UPDATE desks SET agent_id = NULL, team_id = NULL').run();
         })();
         repositionUnassignedAgents();
         broadcastWs({ type: 'reset', scope });
