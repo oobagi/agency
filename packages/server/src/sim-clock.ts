@@ -92,14 +92,16 @@ export class SimClock {
     this.tickListeners.push(callback);
   }
 
-  /** Jump to a specific sim time. Fires a single tick at the new time. */
+  /** Jump to a specific sim time. Fires a single tick at the new time (unless paused). */
   setTime(newTime: Date): void {
     this.simTime = new Date(newTime.getTime());
     this.persistTime();
 
-    // Fire one tick so subscribers (scheduler, etc.) process the new time
-    for (const listener of this.tickListeners) {
-      listener(this.now());
+    // Fire one tick so subscribers (scheduler, etc.) process the new time — but not when paused
+    if (!this.paused) {
+      for (const listener of this.tickListeners) {
+        listener(this.now());
+      }
     }
   }
 
