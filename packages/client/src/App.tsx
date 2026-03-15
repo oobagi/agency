@@ -24,7 +24,6 @@ type OnboardingStep =
   | 'click_om'
   | 'assign_desk'
   | 'send_message'
-  | 'outro'
   | 'done';
 
 const styles = {
@@ -80,6 +79,8 @@ export function App() {
   const finishOnboarding = useCallback(() => {
     setOnboardingStep('done');
     localStorage.setItem(ONBOARDED_KEY, '1');
+    // Resume the simulation after onboarding
+    fetch('/api/sim/resume', { method: 'POST' }).catch(() => {});
   }, []);
 
   const advanceOnboarding = useCallback(() => {
@@ -88,11 +89,6 @@ export function App() {
       if (prev === 'camera_controls') return 'click_om';
       if (prev === 'click_om') return 'assign_desk';
       if (prev === 'assign_desk') return 'send_message';
-      if (prev === 'send_message') return 'outro';
-      if (prev === 'outro') {
-        localStorage.setItem(ONBOARDED_KEY, '1');
-        return 'done';
-      }
       return prev;
     });
   }, []);
@@ -112,9 +108,9 @@ export function App() {
 
   const handleMessageSent = useCallback(() => {
     if (onboardingStep === 'send_message') {
-      advanceOnboarding();
+      finishOnboarding();
     }
-  }, [onboardingStep, advanceOnboarding]);
+  }, [onboardingStep, finishOnboarding]);
 
   const handleRoomClick = useCallback((roomId: string) => {
     setSelectedRoomId((prev) => (prev === roomId ? null : roomId));
@@ -287,16 +283,8 @@ export function App() {
       )}
       {onboarding && (
         <OnboardingDialogue
-          step={
-            onboardingStep as
-              | 'intro'
-              | 'camera_controls'
-              | 'click_om'
-              | 'assign_desk'
-              | 'send_message'
-              | 'outro'
-          }
-          onAdvance={onboardingStep === 'outro' ? finishOnboarding : advanceOnboarding}
+          step={onboardingStep as Exclude<OnboardingStep, 'done'>}
+          onAdvance={advanceOnboarding}
         />
       )}
     </div>

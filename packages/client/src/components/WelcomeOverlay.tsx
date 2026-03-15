@@ -2,13 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
 
-type OnboardingStep =
-  | 'intro'
-  | 'camera_controls'
-  | 'click_om'
-  | 'assign_desk'
-  | 'send_message'
-  | 'outro';
+type OnboardingStep = 'intro' | 'camera_controls' | 'click_om' | 'assign_desk' | 'send_message';
 
 interface OnboardingDialogueProps {
   step: OnboardingStep;
@@ -18,45 +12,26 @@ interface OnboardingDialogueProps {
 const DIALOGUE: Record<OnboardingStep, { lines: string[]; waitForAction: boolean }> = {
   intro: {
     lines: [
-      "Hey there. I'm the Office Manager.",
-      "Welcome to your new office. It's a bit empty right now, but that's about to change.",
-      'Before we get started, let me show you how to look around.',
+      "Hey there. I'm the Office Manager. Welcome to your new office.",
+      'Let me show you the ropes before we get started.',
     ],
     waitForAction: false,
   },
   camera_controls: {
-    lines: ['Try moving the camera now — use the controls below to look around the office.'],
+    lines: ['Try out the camera controls:'],
     waitForAction: true,
   },
   click_om: {
-    lines: [
-      "See me over there? The gray capsule, that's me.",
-      'Click on me in the viewport to open my panel.',
-    ],
+    lines: ['See me over there? The gray capsule — click on me to open my panel.'],
     waitForAction: true,
   },
   assign_desk: {
-    lines: [
-      'First things first — I need somewhere to work.',
-      "Click the 'Assign Desk' button in my panel, then pick a desk for me.",
-    ],
+    lines: ["I need somewhere to work. Click 'Assign Desk' in my panel, then pick a desk."],
     waitForAction: true,
   },
   send_message: {
-    lines: [
-      'Perfect. Now you can talk to me through that chat box.',
-      'Tell me what you want built — a todo app, a blog, whatever you need.',
-      'Type your goal in the chat and hit send.',
-    ],
+    lines: ['Now tell me what you want built — type your goal in the chat and hit send.'],
     waitForAction: true,
-  },
-  outro: {
-    lines: [
-      "Got it. I'll take it from here.",
-      "I'm going to hire some developers, organize them into teams, and start building.",
-      'You can watch everything happen in real time. Good luck, boss.',
-    ],
-    waitForAction: false,
   },
 };
 
@@ -389,13 +364,7 @@ export function OnboardingDialogue({ step, onAdvance }: OnboardingDialogueProps)
   };
 
   // Button label is stable per line — only depends on position, not textDone
-  const buttonLabel = willWait
-    ? 'waiting...'
-    : isLastLine
-      ? step === 'outro'
-        ? 'Got it'
-        : 'Next'
-      : '...';
+  const buttonLabel = willWait ? 'waiting...' : isLastLine ? 'Next' : '...';
 
   return (
     <>
