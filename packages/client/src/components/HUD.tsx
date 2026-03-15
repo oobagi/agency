@@ -15,6 +15,7 @@ interface HUDProps {
   onToggleManage: () => void;
   showSettings: boolean;
   onToggleSettings: () => void;
+  onboarding?: boolean;
 }
 
 const SPEEDS = [1, 2, 5, 10];
@@ -100,6 +101,7 @@ export function HUD({
   onToggleManage,
   showSettings,
   onToggleSettings,
+  onboarding,
 }: HUDProps) {
   const togglePause = useCallback(async () => {
     const endpoint = simState.paused ? '/api/sim/resume' : '/api/sim/pause';
@@ -157,15 +159,26 @@ export function HUD({
           Manage
         </button>
 
-        <button style={styles.button} onClick={togglePause}>
+        <button
+          style={{
+            ...styles.button,
+            ...(onboarding ? { opacity: 0.3, cursor: 'not-allowed' } : {}),
+          }}
+          onClick={onboarding ? undefined : togglePause}
+          disabled={onboarding}
+        >
           {simState.paused ? 'Play' : 'Pause'}
         </button>
 
         {SPEEDS.map((s) => (
           <button
             key={s}
-            style={simState.speed === s ? styles.activeButton : styles.button}
-            onClick={() => setSpeed(s)}
+            style={{
+              ...(simState.speed === s ? styles.activeButton : styles.button),
+              ...(onboarding ? { opacity: 0.3, cursor: 'not-allowed' } : {}),
+            }}
+            onClick={onboarding ? undefined : () => setSpeed(s)}
+            disabled={onboarding}
           >
             {s}x
           </button>
