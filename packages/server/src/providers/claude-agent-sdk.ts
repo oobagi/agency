@@ -70,9 +70,14 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
 
   async spawnSession(config: SessionConfig): Promise<Session> {
     const sessionId = crypto.randomUUID();
-    const fullPrompt = config.context
+    // System prompt = persona + context (rich background for the LLM)
+    const systemPrompt = config.context
       ? `${config.systemPrompt}\n\n${config.context}`
       : config.systemPrompt;
+
+    // User-facing prompt = short instruction to act on the context
+    const userPrompt =
+      'Review your context above and take appropriate action. Use the tools available to you to complete your work.';
 
     // Build the list of allowed MCP tools with the mcp__agency__ prefix
     const allowedMcpTools = config.mcpTools.map((t) => `mcp__${MCP_SERVER_NAME}__${t}`);
@@ -83,10 +88,10 @@ export class ClaudeAgentSdkProvider implements AgenticProvider {
     const mcpServer = this.buildMcpServer(config);
 
     const q = query({
-      prompt: fullPrompt,
+      prompt: userPrompt,
       options: {
         model: config.model,
-        systemPrompt: fullPrompt,
+        systemPrompt,
         mcpServers: {
           [MCP_SERVER_NAME]: mcpServer as McpServerConfig,
         },
