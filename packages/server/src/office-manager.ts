@@ -75,7 +75,8 @@ export function initOfficeManager(): void {
        VALUES (?, 'Office Manager', 'office_manager', ?, 'Idle', -15, 0, 15, ?, ?, ?)`,
     ).run(officeManagerId, OFFICE_MANAGER_PERSONA, simTime, now, now);
 
-    // Seed a row of management desks (unassigned, available for OM and future use)
+    // Seed a grid of desks in the northern half of the office (safe from meeting room walls).
+    // 4 rows x 8 columns = 32 desks, all unassigned. Teams claim these when created.
     const existingDesks = db
       .prepare('SELECT COUNT(*) as cnt FROM desks WHERE team_id IS NULL')
       .get() as { cnt: number };
@@ -83,10 +84,18 @@ export function initOfficeManager(): void {
       const deskInsert = db.prepare(
         'INSERT INTO desks (id, position_x, position_y, position_z, team_id) VALUES (?, ?, 0, ?, NULL)',
       );
-      for (let i = 0; i < 4; i++) {
-        deskInsert.run(crypto.randomUUID(), -4 + i * 3, -5);
+      const COLS = 8;
+      const ROWS = 4;
+      const START_X = -10;
+      const START_Z = -4;
+      const SPACING_X = 3;
+      const SPACING_Z = -3; // rows go northward (more negative Z)
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          deskInsert.run(crypto.randomUUID(), START_X + col * SPACING_X, START_Z + row * SPACING_Z);
+        }
       }
-      console.log('[office-manager] Seeded 4 management desks');
+      console.log(`[office-manager] Seeded ${ROWS * COLS} desks in northern grid`);
     }
 
     // Create daily schedule for the Office Manager (standard arrive/lunch/depart)
@@ -551,12 +560,14 @@ export function sendUserMessageToAgent(agentId: string, message: string): void {
 
 export function getChatLogs(agentId: string): unknown[] {
   const db = getDb();
+  // Only return DM-style messages (user ↔ agent), not inter-agent speak chatter.
+  // 'user' = user sent message, 'dm' = agent replied to user, 'system' = system events
   return db
     .prepare(
       `SELECT cl.*, a.name as speaker_name
        FROM chat_logs cl
        LEFT JOIN agents a ON cl.speaker_id = a.id
-       WHERE cl.agent_id = ?
+       WHERE cl.agent_id = ? AND cl.speaker_type IN ('user', 'dm', 'system')
        ORDER BY cl.created_at ASC`,
     )
     .all(agentId);

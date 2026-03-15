@@ -468,7 +468,11 @@ export function SidePanel({
             {chatLogs.map((cl) => (
               <div key={cl.id} style={S.chatMsg(cl.speaker_type === 'user')}>
                 <div style={S.chatSpeaker}>
-                  {cl.speaker_type === 'user' ? 'You' : (cl.speaker_name ?? 'Agent')}
+                  {cl.speaker_type === 'user'
+                    ? 'You'
+                    : cl.speaker_type === 'system'
+                      ? 'System'
+                      : (cl.speaker_name ?? 'Agent')}
                 </div>
                 <div>{cl.message}</div>
                 <div style={S.chatTime}>{formatTime(cl.sim_time)}</div>
