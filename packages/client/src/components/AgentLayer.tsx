@@ -16,15 +16,17 @@ export function AgentLayer({
 }: AgentLayerProps) {
   return (
     <>
-      {[...agents.values()].map((agent) => (
-        <AgentCapsule
-          key={agent.id}
-          agent={agent}
-          selected={agent.id === selectedAgentId}
-          highlight={agent.id === highlightAgentId}
-          onClick={onAgentClick}
-        />
-      ))}
+      {[...agents.values()]
+        .filter((a) => a.state !== 'Departing')
+        .map((agent) => (
+          <AgentCapsule
+            key={agent.id}
+            agent={agent}
+            selected={agent.id === selectedAgentId}
+            highlight={agent.id === highlightAgentId}
+            onClick={onAgentClick}
+          />
+        ))}
     </>
   );
 }
