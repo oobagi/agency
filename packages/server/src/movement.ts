@@ -120,22 +120,31 @@ function renderTick(): void {
 
       activeMovements.delete(agentId);
 
-      broadcastPositionFn({
-        agentId,
-        x: target.targetX,
-        y: 0,
-        z: target.targetZ,
-        state: 'Walking',
-        moving: false,
-      });
-
-      // Fire arrival callback (e.g., transition to Idle)
+      // Fire arrival callback (e.g., transition to Idle) BEFORE broadcasting
+      // so the broadcast includes the correct post-arrival state.
       if (target.onArrival) {
         target.onArrival();
       } else {
         // Default: transition Walking → Idle
         transitionAgentState(agentId, 'Idle');
       }
+
+      // Read the actual state after transition for the broadcast
+      const postState =
+        (
+          db.prepare('SELECT state FROM agents WHERE id = ?').get(agentId) as
+            | { state: string }
+            | undefined
+        )?.state ?? 'Idle';
+
+      broadcastPositionFn({
+        agentId,
+        x: target.targetX,
+        y: 0,
+        z: target.targetZ,
+        state: postState,
+        moving: false,
+      });
 
       continue;
     }
