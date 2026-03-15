@@ -3,6 +3,15 @@ import { getDb } from '../db.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { createDailyScheduleForAgent, removeScheduleForAgent } from '../scheduler.js';
 
+// ── Agent lifecycle broadcast (so clients know about new/fired agents) ──
+
+type AgentBroadcastFn = (data: Record<string, unknown>) => void;
+let broadcastAgentFn: AgentBroadcastFn = () => {};
+
+export function setAgentBroadcast(fn: AgentBroadcastFn): void {
+  broadcastAgentFn = fn;
+}
+
 // ── Desk layout constants ──────────────────────────────────────────
 // Desks are arranged in rows. Each team gets a block of desks.
 // We pre-allocate a pool of desks when the server seeds the office.
@@ -127,6 +136,9 @@ export async function handleHireAgent(
 
   console.log(`[hire_agent] Hired "${persona.name}" (${agentId}) by ${callerAgentId}`);
 
+  // Broadcast so clients render the new agent immediately
+  broadcastAgentFn({ type: 'agent_hired', agentId, name: persona.name, role });
+
   return ok({
     agent_id: agentId,
     name: persona.name,
@@ -191,6 +203,9 @@ export async function handleFireAgent(
   removeScheduleForAgent(agentId);
 
   console.log(`[fire_agent] Fired "${agent.name}" (${agentId})`);
+
+  // Broadcast so clients remove the agent immediately
+  broadcastAgentFn({ type: 'agent_fired', agentId });
 
   return ok({
     agent_id: agentId,
