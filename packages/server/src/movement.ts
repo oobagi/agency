@@ -50,6 +50,17 @@ export function setPositionBroadcast(fn: PositionBroadcastFn): void {
   broadcastPositionFn = fn;
 }
 
+/** Broadcast a one-off position update (e.g., agent moved off-screen). */
+export function broadcastAgentPosition(
+  agentId: string,
+  x: number,
+  y: number,
+  z: number,
+  state: string,
+): void {
+  broadcastPositionFn({ agentId, x, y, z, state, moving: false });
+}
+
 // ── Start movement render loop (decoupled from sim clock) ──────────
 // Runs at ~60Hz real-time for smooth interpolation, regardless of sim speed.
 
