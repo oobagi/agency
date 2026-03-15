@@ -191,14 +191,21 @@ function DiffView({ diff }: { diff: string }) {
 
 interface DiffViewerPanelProps {
   onClose: () => void;
+  subscribe?: (handler: (msg: { type: string; [key: string]: unknown }) => void) => () => void;
 }
 
-export function DiffViewerPanel({ onClose }: DiffViewerPanelProps) {
+export function DiffViewerPanel({ onClose, subscribe }: DiffViewerPanelProps) {
   const [view, setView] = useState<View>('projects');
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [worktrees, setWorktrees] = useState<Worktree[]>([]);
   const [prs, setPrs] = useState<PR[]>([]);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formPath, setFormPath] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
 
   // Worktree detail state
   const [selectedWorktree, setSelectedWorktree] = useState<Worktree | null>(null);
@@ -209,13 +216,64 @@ export function DiffViewerPanel({ onClose }: DiffViewerPanelProps) {
   const [selectedPR, setSelectedPR] = useState<PR | null>(null);
   const [prDiff, setPrDiff] = useState<string>('');
 
-  // Fetch projects on mount
-  useEffect(() => {
+  const fetchProjects = useCallback(() => {
     fetch('/api/projects')
       .then((r) => r.json())
       .then((data) => setProjects(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
+
+  // Fetch projects on mount
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  // Refresh project list when a new project is created
+  useEffect(() => {
+    if (!subscribe) return;
+    return subscribe((msg) => {
+      if (msg.type === 'project_created') fetchProjects();
+    });
+  }, [subscribe, fetchProjects]);
+
+  const handleCreateProject = useCallback(async () => {
+    setFormError(null);
+    if (!formName.trim()) {
+      setFormError('Name is required');
+      return;
+    }
+    if (!formPath.trim()) {
+      setFormError('Path is required');
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const r = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formName.trim(),
+          path: formPath.trim(),
+          description: formDesc.trim(),
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setFormError(data.error ?? 'Failed to create project');
+        return;
+      }
+      // Success — reset form
+      setShowNewForm(false);
+      setFormName('');
+      setFormPath('');
+      setFormDesc('');
+      fetchProjects();
+    } catch {
+      setFormError('Network error');
+    } finally {
+      setFormLoading(false);
+    }
+  }, [formName, formPath, formDesc, fetchProjects]);
 
   const selectProject = useCallback((project: Project) => {
     setSelectedProject(project);
@@ -309,6 +367,120 @@ export function DiffViewerPanel({ onClose }: DiffViewerPanelProps) {
         {/* Project list */}
         {!selectedProject && (
           <>
+            <button
+              style={{
+                background: '#6366f1',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '8px 14px',
+                cursor: 'pointer',
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                marginBottom: '10px',
+                width: '100%',
+              }}
+              onClick={() => setShowNewForm((v) => !v)}
+            >
+              + New Project
+            </button>
+
+            {showNewForm && (
+              <div
+                style={{
+                  background: '#2a2a45',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  marginBottom: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <input
+                  style={{
+                    background: '#1a1a2e',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    padding: '6px 8px',
+                    color: '#e2e8f0',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                  placeholder="Project name"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                />
+                <input
+                  style={{
+                    background: '#1a1a2e',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    padding: '6px 8px',
+                    color: '#e2e8f0',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                  placeholder="Absolute path (e.g. /Users/me/code/myapp)"
+                  value={formPath}
+                  onChange={(e) => setFormPath(e.target.value)}
+                />
+                <input
+                  style={{
+                    background: '#1a1a2e',
+                    border: '1px solid #444',
+                    borderRadius: '4px',
+                    padding: '6px 8px',
+                    color: '#e2e8f0',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                  }}
+                  placeholder="Description (optional)"
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                />
+                {formError && <div style={{ color: '#fc8181', fontSize: '11px' }}>{formError}</div>}
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                  <button
+                    style={{
+                      background: 'none',
+                      border: '1px solid #555',
+                      borderRadius: '4px',
+                      color: '#a0aec0',
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                      fontFamily: 'monospace',
+                      fontSize: '11px',
+                    }}
+                    onClick={() => {
+                      setShowNewForm(false);
+                      setFormError(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    style={{
+                      background: formLoading ? '#4a4a6a' : '#6366f1',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '4px 10px',
+                      cursor: formLoading ? 'default' : 'pointer',
+                      fontFamily: 'monospace',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                    }}
+                    onClick={handleCreateProject}
+                    disabled={formLoading}
+                  >
+                    {formLoading ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {projects.map((p) => (
               <div key={p.id} style={S.card} onClick={() => selectProject(p)}>
                 <div style={S.cardTitle}>{p.name}</div>
@@ -322,7 +494,15 @@ export function DiffViewerPanel({ onClose }: DiffViewerPanelProps) {
                 </div>
               </div>
             ))}
-            {projects.length === 0 && <div style={S.empty}>No projects yet</div>}
+            {projects.length === 0 && !showNewForm && (
+              <div style={{ ...S.empty, marginTop: '20px' }}>
+                <div>No projects yet.</div>
+                <div style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
+                  Create a project to get started — the Office Manager will help organize your team
+                  around it.
+                </div>
+              </div>
+            )}
           </>
         )}
 

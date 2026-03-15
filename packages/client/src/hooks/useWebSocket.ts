@@ -45,7 +45,8 @@ export type WSMessage =
   | { type: 'chat_log'; agentId: string; entry: Record<string, unknown> }
   | { type: 'agent_hired'; agentId: string; name: string; role: string }
   | { type: 'agent_fired'; agentId: string }
-  | { type: 'agent_updated'; agentId: string };
+  | { type: 'agent_updated'; agentId: string }
+  | { type: 'project_created'; projectId: string; name: string; description: string };
 
 type MessageHandler = (msg: WSMessage) => void;
 

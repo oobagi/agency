@@ -40,6 +40,7 @@ import {
   sendUserMessageToAgent,
   triggerUserMessageSession,
   getChatLogs,
+  getOfficeManagerId,
 } from './office-manager.js';
 import { setTeamManagerSimClock } from './team-manager.js';
 import { setContextSimClock } from './context-assembly.js';
@@ -67,6 +68,7 @@ import {
   getWorktrees,
   getWorktreeDiff,
   getWorktreeCommits,
+  createUserProject,
 } from './handlers/git-operations.js';
 import { processEndOfDayCompression } from './memory-compression.js';
 import { setContextMonitorSimClock, setContextAlertCallback } from './context-monitor.js';
@@ -406,6 +408,43 @@ const server = http.createServer(async (req, res) => {
   // ── Project and PR endpoints ────────────────────────────────────
   if (url === '/api/projects' && method === 'GET') {
     return json(res, getProjects());
+  }
+
+  if (url === '/api/projects' && method === 'POST') {
+    try {
+      const body = JSON.parse(await readBody(req));
+      const result = await createUserProject({
+        name: body.name,
+        path: body.path,
+        description: body.description,
+      });
+      if (!result.success) return json(res, { error: result.error }, 400);
+      const project = result.project;
+
+      // Broadcast project_created WS event
+      broadcastWs({
+        type: 'project_created',
+        projectId: project.id,
+        name: project.name,
+        description: project.description,
+      });
+
+      // Notify the OM via chat_log injection + trigger session
+      const omId = getOfficeManagerId();
+      if (omId) {
+        const desc = project.description ? `: ${project.description}` : '';
+        sendUserMessageToAgent(
+          omId,
+          `I just created a new project "${project.name}" at ${project.repo_path}${desc}. What do you think we should do?`,
+        );
+        triggerUserMessageSession(omId);
+      }
+
+      return json(res, project, 201);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid request';
+      return json(res, { error: msg }, 400);
+    }
   }
 
   if (url?.match(/^\/api\/projects\/[^/]+$/) && method === 'GET') {
