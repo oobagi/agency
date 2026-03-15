@@ -80,6 +80,7 @@ interface OfficeSceneProps {
   onRoomClick: (roomId: string) => void;
   onDeskClick?: (deskId: string) => void;
   onBackgroundClick: () => void;
+  onboarding?: boolean;
 }
 
 export function OfficeScene({
@@ -94,13 +95,18 @@ export function OfficeScene({
   onRoomClick,
   onDeskClick,
   onBackgroundClick,
+  onboarding,
 }: OfficeSceneProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
+  // During onboarding, point camera at the onboarding room where the OM is
+  const camPos: [number, number, number] = onboarding ? [5, 25, 35] : [30, 25, 30];
+  const camTarget: [number, number, number] = onboarding ? [-15, 0, 15] : [5, 0, 8];
+
   return (
     <Canvas
-      camera={{ position: [30, 25, 30], fov: 50, near: 0.1, far: 200 }}
+      camera={{ position: camPos, fov: 50, near: 0.1, far: 200 }}
       style={{ width: '100%', height: '100%', background: '#1a1a2e' }}
       onPointerMissed={onBackgroundClick}
     >
@@ -112,7 +118,7 @@ export function OfficeScene({
       {/* Camera controls */}
       <OrbitControls
         ref={controlsRef}
-        target={[5, 0, 8]}
+        target={camTarget}
         minDistance={5}
         maxDistance={80}
         maxPolarAngle={Math.PI / 2.1}

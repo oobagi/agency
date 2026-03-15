@@ -14,6 +14,7 @@ const DIALOGUE: Record<OnboardingStep, { lines: string[]; waitForAction: boolean
     lines: [
       "Hey there. I'm the Office Manager.",
       "Welcome to your new office. It's a bit empty right now, but that's about to change.",
+      'Use WASD to move the camera around, and click-drag to rotate. Scroll to zoom.',
       'Let me show you how things work around here.',
     ],
     waitForAction: false,
