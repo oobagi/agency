@@ -5,6 +5,7 @@ import { SessionRecorder, claimSessionSlot, releaseSessionSlot } from './session
 import { registerJobHandler, createDailyScheduleForAgent } from './scheduler.js';
 import { TOOL_DEFINITIONS, MANAGER_ONLY_TOOLS } from './mcp/tool-registry.js';
 import { buildSessionContext } from './context-assembly.js';
+import { lightweightQuery } from './providers/lightweight.js';
 
 // ── Office Manager persona (system agent, not from agency-agents repo) ─
 
@@ -498,16 +499,42 @@ export function triggerUserMessageSession(agentId: string): void {
     return;
   }
 
-  if (agent.role === 'office_manager') {
-    spawnOMSession(agentId, 'User message').catch((err) => {
+  // Generate a short title from the user's latest message, then spawn
+  generateSessionTitle(agentId)
+    .then((title) => {
+      if (agent.role === 'office_manager') {
+        return spawnOMSession(agentId, title);
+      } else {
+        return spawnAgentSession(agentId, title);
+      }
+    })
+    .catch((err) => {
       releaseSessionSlot(agentId);
-      console.error('[user-message] OM session failed:', err);
+      console.error('[user-message] Session failed:', err);
     });
-  } else {
-    spawnAgentSession(agentId, 'User message').catch((err) => {
-      releaseSessionSlot(agentId);
-      console.error('[user-message] Agent session failed:', err);
-    });
+}
+
+async function generateSessionTitle(agentId: string): Promise<string> {
+  const db = getDb();
+  // Grab the latest user message for this agent
+  const lastMsg = db
+    .prepare(
+      `SELECT message FROM chat_logs
+       WHERE agent_id = ? AND speaker_type = 'user'
+       ORDER BY created_at DESC LIMIT 1`,
+    )
+    .get(agentId) as { message: string } | undefined;
+
+  if (!lastMsg) return 'User message';
+
+  try {
+    const result = await lightweightQuery(
+      `Generate a very short title (3-6 words, no quotes) summarizing this user message:\n\n"${lastMsg.message.slice(0, 300)}"`,
+    );
+    const title = result.trim().replace(/^["']|["']$/g, '');
+    return title || 'User message';
+  } catch {
+    return 'User message';
   }
 }
 
