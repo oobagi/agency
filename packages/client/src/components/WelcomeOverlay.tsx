@@ -2,7 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
 
-type OnboardingStep = 'intro' | 'click_om' | 'assign_desk' | 'send_message' | 'outro';
+type OnboardingStep =
+  | 'intro'
+  | 'camera_controls'
+  | 'click_om'
+  | 'assign_desk'
+  | 'send_message'
+  | 'outro';
 
 interface OnboardingDialogueProps {
   step: OnboardingStep;
@@ -14,10 +20,13 @@ const DIALOGUE: Record<OnboardingStep, { lines: string[]; waitForAction: boolean
     lines: [
       "Hey there. I'm the Office Manager.",
       "Welcome to your new office. It's a bit empty right now, but that's about to change.",
-      'Use WASD to move the camera around, and click-drag to rotate. Scroll to zoom.',
-      'Let me show you how things work around here.',
+      'Before we get started, let me show you how to look around.',
     ],
     waitForAction: false,
+  },
+  camera_controls: {
+    lines: ['Try moving the camera now — use the controls below to look around the office.'],
+    waitForAction: true,
   },
   click_om: {
     lines: [
@@ -196,6 +205,148 @@ function TypewriterText({ text }: { text: string }) {
   );
 }
 
+const keycap: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '38px',
+  height: '38px',
+  background: 'linear-gradient(180deg, #3a3a5c 0%, #2a2a45 100%)',
+  border: '2px solid #555577',
+  borderBottom: '3px solid #444466',
+  borderRadius: '6px',
+  color: '#e2e8f0',
+  fontSize: '14px',
+  fontWeight: 'bold',
+  fontFamily: 'monospace',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)',
+};
+
+const keycapSmall: React.CSSProperties = {
+  ...keycap,
+  width: '52px',
+  fontSize: '10px',
+};
+
+function KeycapControlsOverlay({ onTriggered }: { onTriggered: () => void }) {
+  const triggered = useRef(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent | MouseEvent | WheelEvent) => {
+      if (triggered.current) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+
+      if (e instanceof KeyboardEvent) {
+        if (!['w', 'a', 's', 'd'].includes(e.key.toLowerCase())) return;
+      }
+
+      triggered.current = true;
+      onTriggered();
+    };
+
+    window.addEventListener('keydown', handler);
+    window.addEventListener('mousedown', handler);
+    window.addEventListener('wheel', handler);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('mousedown', handler);
+      window.removeEventListener('wheel', handler);
+    };
+  }, [onTriggered]);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: '160px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 91,
+        display: 'flex',
+        gap: '32px',
+        alignItems: 'flex-start',
+        pointerEvents: 'none',
+      }}
+    >
+      {/* WASD keys */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ marginBottom: '4px' }}>
+          <span style={keycap}>W</span>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+          <span style={keycap}>A</span>
+          <span style={keycap}>S</span>
+          <span style={keycap}>D</span>
+        </div>
+        <div
+          style={{ color: '#a0aec0', fontSize: '10px', marginTop: '6px', fontFamily: 'monospace' }}
+        >
+          Move camera
+        </div>
+      </div>
+
+      {/* Mouse drag */}
+      <div style={{ textAlign: 'center' }}>
+        <div
+          style={{
+            width: '40px',
+            height: '56px',
+            border: '2px solid #555577',
+            borderRadius: '12px',
+            margin: '0 auto',
+            position: 'relative',
+            background: 'linear-gradient(180deg, #3a3a5c 0%, #2a2a45 100%)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+          }}
+        >
+          {/* Mouse button divider */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: '50%',
+              width: '1px',
+              height: '24px',
+              background: '#555577',
+            }}
+          />
+          {/* Scroll wheel */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '6px',
+              height: '10px',
+              border: '1.5px solid #888',
+              borderRadius: '3px',
+            }}
+          />
+        </div>
+        <div
+          style={{ color: '#a0aec0', fontSize: '10px', marginTop: '6px', fontFamily: 'monospace' }}
+        >
+          Drag to rotate
+        </div>
+      </div>
+
+      {/* Scroll to zoom */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+          <span style={keycapSmall}>Scroll</span>
+        </div>
+        <div
+          style={{ color: '#a0aec0', fontSize: '10px', marginTop: '6px', fontFamily: 'monospace' }}
+        >
+          Zoom in/out
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OnboardingDialogue({ step, onAdvance }: OnboardingDialogueProps) {
   const dialogue = DIALOGUE[step];
   const [lineIndex, setLineIndex] = useState(0);
@@ -241,29 +392,32 @@ export function OnboardingDialogue({ step, onAdvance }: OnboardingDialogueProps)
       : '...';
 
   return (
-    <div style={S.container}>
-      <div style={S.portrait}>
-        <CapsulePortrait />
-      </div>
-      <div style={S.box}>
-        <div style={S.nameTag}>OFFICE MANAGER</div>
-        <div style={S.text}>
-          <TypewriterText key={`${step}-${lineIndex}`} text={currentText} />
+    <>
+      {step === 'camera_controls' && <KeycapControlsOverlay onTriggered={onAdvance} />}
+      <div style={S.container}>
+        <div style={S.portrait}>
+          <CapsulePortrait />
         </div>
-        <div style={S.footer}>
-          <button
-            style={
-              { ...S.skipBtn, visibility: willWait ? 'visible' : 'hidden' } as React.CSSProperties
-            }
-            onClick={onAdvance}
-          >
-            skip
-          </button>
-          <button style={S.advanceBtn(canAdvance)} onClick={handleNext} disabled={!canAdvance}>
-            {buttonLabel}
-          </button>
+        <div style={S.box}>
+          <div style={S.nameTag}>OFFICE MANAGER</div>
+          <div style={S.text}>
+            <TypewriterText key={`${step}-${lineIndex}`} text={currentText} />
+          </div>
+          <div style={S.footer}>
+            <button
+              style={
+                { ...S.skipBtn, visibility: willWait ? 'visible' : 'hidden' } as React.CSSProperties
+              }
+              onClick={onAdvance}
+            >
+              skip
+            </button>
+            <button style={S.advanceBtn(canAdvance)} onClick={handleNext} disabled={!canAdvance}>
+              {buttonLabel}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
