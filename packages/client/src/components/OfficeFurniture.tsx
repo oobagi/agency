@@ -26,13 +26,19 @@ function DeskMesh({
   const isTeamMatch = isAvailable && desk.team_id === deskAssignMode?.teamId;
 
   useFrame(({ clock }) => {
-    if (!meshRef.current || !isAvailable) return;
-    const t = clock.getElapsedTime();
-    const pulse = Math.sin(t * 4) * 0.3 + 0.5;
+    if (!meshRef.current) return;
     const mat = meshRef.current.material as unknown as {
       emissiveIntensity: number;
       emissive: { set: (c: string) => void };
     };
+    if (!isAvailable) {
+      // Reset emissive when not in assign mode
+      mat.emissive.set('#000000');
+      mat.emissiveIntensity = 0;
+      return;
+    }
+    const t = clock.getElapsedTime();
+    const pulse = Math.sin(t * 4) * 0.3 + 0.5;
     mat.emissive.set(isTeamMatch ? '#4488ff' : '#3366aa');
     mat.emissiveIntensity = pulse;
   });

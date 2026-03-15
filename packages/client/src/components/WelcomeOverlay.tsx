@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
 
-type OnboardingStep = 'intro' | 'click_om' | 'send_message' | 'outro';
+type OnboardingStep = 'intro' | 'click_om' | 'assign_desk' | 'send_message' | 'outro';
 
 interface OnboardingDialogueProps {
   step: OnboardingStep;
@@ -22,6 +22,13 @@ const DIALOGUE: Record<OnboardingStep, { lines: string[]; waitForAction: boolean
     lines: [
       "See me over there? The gray capsule, that's me.",
       'Click on me in the viewport to open my panel.',
+    ],
+    waitForAction: true,
+  },
+  assign_desk: {
+    lines: [
+      'First things first — I need somewhere to work.',
+      "Click the 'Assign Desk' button in my panel, then pick a desk for me.",
     ],
     waitForAction: true,
   },

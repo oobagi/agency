@@ -27,6 +27,26 @@ export function setSpeakBroadcast(fn: SpeakBroadcastFn): void {
   broadcastSpeakFn = fn;
 }
 
+// ── Chat log broadcast (WebSocket → clients for SidePanel live updates) ──
+
+type ChatLogBroadcastFn = (data: {
+  agentId: string;
+  entry: {
+    id: string;
+    speaker_id: string;
+    speaker_type: string;
+    speaker_name: string;
+    message: string;
+    sim_time: string;
+  };
+}) => void;
+
+let broadcastChatLogFn: ChatLogBroadcastFn = () => {};
+
+export function setChatLogBroadcast(fn: ChatLogBroadcastFn): void {
+  broadcastChatLogFn = fn;
+}
+
 // ── speak handler ───────────────────────────────────────────────────
 
 export async function handleSpeak(
@@ -118,16 +138,22 @@ export async function handleReplyToUser(
   const now = new Date().toISOString();
 
   // Record in chat_logs for this agent (speaker_type = 'agent', visible in SidePanel)
+  const chatLogId = crypto.randomUUID();
   db.prepare(
     'INSERT INTO chat_logs (id, agent_id, speaker_id, speaker_type, message, sim_time, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).run(crypto.randomUUID(), callerAgentId, callerAgentId, 'agent', message, simTime, now);
+  ).run(chatLogId, callerAgentId, callerAgentId, 'agent', message, simTime, now);
 
-  // Broadcast as a speak event so the UI shows it in real-time
-  broadcastSpeakFn({
+  // Broadcast as a chat_log event (not speak — speak is for agent-to-agent proximity chat)
+  broadcastChatLogFn({
     agentId: callerAgentId,
-    agentName: agent.name,
-    message,
-    listeners: [],
+    entry: {
+      id: chatLogId,
+      speaker_id: callerAgentId,
+      speaker_type: 'agent',
+      speaker_name: agent.name,
+      message,
+      sim_time: simTime,
+    },
   });
 
   console.log(`[reply_to_user] ${agent.name} → User: "${message.slice(0, 80)}"`);

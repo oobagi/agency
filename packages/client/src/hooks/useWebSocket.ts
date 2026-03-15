@@ -42,6 +42,7 @@ export type WSMessage =
       description: string;
       simTime: string;
     }
+  | { type: 'chat_log'; agentId: string; entry: Record<string, unknown> }
   | { type: 'agent_hired'; agentId: string; name: string; role: string }
   | { type: 'agent_fired'; agentId: string }
   | { type: 'agent_updated'; agentId: string };
