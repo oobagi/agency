@@ -18,6 +18,7 @@ import {
   handleCreateTeam,
   handleAssignAgentToTeam,
   deleteTeam,
+  setAgentBroadcast,
 } from './handlers/agent-management.js';
 import {
   setSessionBroadcast,
@@ -548,12 +549,6 @@ const server = http.createServer(async (req, res) => {
       );
       const data = JSON.parse((result.content[0] as { text: string }).text);
       if (result.isError) return json(res, data, 400);
-      broadcastWs({
-        type: 'agent_hired',
-        agentId: data.agent_id,
-        name: data.name,
-        role: role ?? 'agent',
-      });
       return json(res, data, 201);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Invalid request';
@@ -567,7 +562,6 @@ const server = http.createServer(async (req, res) => {
       const result = await handleFireAgent({ agent_id: agentId }, 'user', () => clock.now());
       const data = JSON.parse((result.content[0] as { text: string }).text);
       if (result.isError) return json(res, data, 400);
-      broadcastWs({ type: 'agent_fired', agentId });
       return json(res, data);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Invalid request';
@@ -758,6 +752,11 @@ setBlockerBroadcast((data) => {
       new Date().toISOString(),
     );
   }
+});
+
+// ── Agent lifecycle broadcast (hire/fire via MCP tools → WebSocket clients) ──
+setAgentBroadcast((data) => {
+  broadcastWs(data);
 });
 
 clock.onTick((simTime) => {
