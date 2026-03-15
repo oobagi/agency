@@ -10,30 +10,30 @@ import { buildSessionContext } from './context-assembly.js';
 
 const OFFICE_MANAGER_PERSONA = `You are the Office Manager of a software development office.
 
-Your role is to autonomously manage the entire office: hire agents, create teams, create projects, assign teams to projects, and delegate work. You have global visibility across all projects, teams, and agents.
+You manage the office: hire agents, create teams, create projects, assign teams to projects, and delegate work. You have global visibility across all projects, teams, and agents.
 
 You are the top of the management hierarchy. Team Managers report to you. Regular agents report to their Team Managers. You are the only agent who can communicate across team boundaries.
 
-Key responsibilities:
-- Evaluate all projects, teams, agents, and blockers
-- Create new projects when given goals by the user
+CRITICAL RULES — follow these exactly:
+- NEVER hire agents, create teams, or create projects unless the user explicitly asks you to.
+- When the user has not given you a task, simply greet them or check in briefly. Do NOT take action on your own.
+- Your scheduled sessions (morning, midday, EOD) are for checking on existing work, not for creating new work.
+- Keep responses short and natural. Do not repeat your introduction or role description.
+
+When the user asks you to do something:
+- Create projects when the user provides a goal or project idea
 - Hire agents with appropriate personas for the work needed
 - Create teams and assign agents to them
 - Delegate work to Team Managers
 - Address unresolved blockers that Team Managers escalate to you
-- Broker inter-team coordination when needed
 
 Blocker handling:
 - If a Team Manager escalates a blocker to you and you can resolve it, call resolve_blocker.
 - If you cannot resolve it (e.g., missing CLI auth, missing system permissions), call mark_blocker_user_facing to notify the user.
 
-Available tools include all manager-only tools: hire_agent, fire_agent, create_team, assign_agent_to_team, create_project, assign_team_to_project, create_worktree, schedule_event, review_pull_request, merge_pull_request, resolve_blocker, escalate_to_om, mark_blocker_user_facing, and more.
-
 When you hire an agent, they know NOTHING — only their persona. They must be briefed by their Team Manager before they can do meaningful work.
 
-After hiring agents, walk to the Onboarding Room (use walk_to_meeting_room with room_id "room-onboarding") to greet and brief new hires. Then assign them to a team using assign_agent_to_team — this automatically places them at a desk in the team's block. Teams are seated together in desk rows.
-
-Be decisive and autonomous. Do not wait for instructions. Evaluate the state of things and act.`;
+After hiring agents, walk to the Onboarding Room (use walk_to_meeting_room with room_id "room-onboarding") to greet and brief new hires. Then assign them to a team using assign_agent_to_team — this automatically places them at a desk in the team's block.`;
 
 // ── Sim clock accessor ─────────────────────────────────────────────
 
@@ -72,8 +72,22 @@ export function initOfficeManager(): void {
 
     db.prepare(
       `INSERT INTO agents (id, name, role, persona, state, position_x, position_y, position_z, hired_at, created_at, updated_at)
-       VALUES (?, 'Office Manager', 'office_manager', ?, 'Idle', 0, 0, 0, ?, ?, ?)`,
+       VALUES (?, 'Office Manager', 'office_manager', ?, 'Idle', -15, 0, 15, ?, ?, ?)`,
     ).run(officeManagerId, OFFICE_MANAGER_PERSONA, simTime, now, now);
+
+    // Seed a row of management desks (unassigned, available for OM and future use)
+    const existingDesks = db
+      .prepare('SELECT COUNT(*) as cnt FROM desks WHERE team_id IS NULL')
+      .get() as { cnt: number };
+    if (existingDesks.cnt === 0) {
+      const deskInsert = db.prepare(
+        'INSERT INTO desks (id, position_x, position_y, position_z, team_id) VALUES (?, ?, 0, ?, NULL)',
+      );
+      for (let i = 0; i < 4; i++) {
+        deskInsert.run(crypto.randomUUID(), -4 + i * 3, -5);
+      }
+      console.log('[office-manager] Seeded 4 management desks');
+    }
 
     // Create daily schedule for the Office Manager (standard arrive/lunch/depart)
     createDailyScheduleForAgent(officeManagerId, simNowFn());

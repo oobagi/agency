@@ -95,7 +95,9 @@ function handleArrive(agentId: string, _payload: Record<string, unknown>, _simTi
       }
     }
 
-    console.log(`[scheduler] ${agentId} → Arriving (no desk)`);
+    // No desk — transition directly to Idle (already in the office)
+    setAgentState(agentId, 'Idle');
+    console.log(`[scheduler] ${agentId} → Idle (no desk, skip arrive walk)`);
     return true;
   }
 
@@ -158,9 +160,9 @@ function handleReturnFromLunch(
       }
     }
 
-    // No desk — just set Walking
-    setAgentState(agentId, 'Walking');
-    console.log(`[scheduler] ${agentId} → Walking (return from lunch, no desk)`);
+    // No desk — go straight to Idle
+    setAgentState(agentId, 'Idle');
+    console.log(`[scheduler] ${agentId} → Idle (return from lunch, no desk)`);
     return true;
   }
 
@@ -175,13 +177,22 @@ function handleDepart(agentId: string, _payload: Record<string, unknown>, _simTi
   // Valid transitions to Departing: from Break, Idle
   const canDepart = ['Break', 'Idle'];
   if (canDepart.includes(state)) {
-    // Walk to the exit, then transition to Departing on arrival
+    // Walk to the exit, then transition to Departing and move off-screen
     const walkResult = startWalking(agentId, 0, -19, 'exit', () => {
       setAgentState(agentId, 'Departing');
+      // Move off-screen so they disappear from the viewport
+      const db = getDb();
+      db.prepare(
+        'UPDATE agents SET position_x = 0, position_y = -10, position_z = -30 WHERE id = ?',
+      ).run(agentId);
     });
     if (walkResult.isError) {
-      // Fallback: just set state directly
+      // Fallback: set state and move off-screen directly
       setAgentState(agentId, 'Departing');
+      const db = getDb();
+      db.prepare(
+        'UPDATE agents SET position_x = 0, position_y = -10, position_z = -30 WHERE id = ?',
+      ).run(agentId);
     }
     console.log(`[scheduler] ${agentId} → Walking to exit (departing)`);
     return true;

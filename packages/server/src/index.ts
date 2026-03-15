@@ -53,6 +53,7 @@ import {
 import {
   setCommunicationSimClock,
   setSpeakBroadcast,
+  setChatLogBroadcast,
   setConversationBroadcast,
   getConversations,
   getConversation,
@@ -663,6 +664,16 @@ setPositionBroadcast((data) => {
 // ── Speak broadcast (communication → WebSocket clients for chat bubbles) ──
 setSpeakBroadcast((data) => {
   const message = JSON.stringify({ type: 'speak', ...data });
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+});
+
+// ── Chat log broadcast (reply_to_user → WebSocket clients for SidePanel) ──
+setChatLogBroadcast((data) => {
+  const message = JSON.stringify({ type: 'chat_log', ...data });
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(message);

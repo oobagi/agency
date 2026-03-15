@@ -301,20 +301,13 @@ export function SidePanel({
   // Live chat + session updates via WebSocket
   useEffect(() => {
     return subscribe((msg) => {
-      // Live chat: append agent speak events to chat log
-      if (msg.type === 'speak' && msg.agentId === agentId) {
-        setChatLogs((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            speaker_id: msg.agentId as string,
-            speaker_type: 'agent',
-            speaker_name: msg.agentName as string,
-            message: msg.message as string,
-            sim_time: new Date().toISOString(),
-          },
-        ]);
-        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      // Live chat: re-fetch from DB on new chat_log (single source of truth)
+      if (msg.type === 'chat_log' && msg.agentId === agentId) {
+        fetch(`/api/agents/${agentId}/chat-logs`)
+          .then((r) => r.json())
+          .then((data) => setChatLogs(Array.isArray(data) ? data : []))
+          .catch(() => {});
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 150);
       }
 
       if (msg.type === 'session_event' && msg.agentId === agentId) {
@@ -420,7 +413,7 @@ export function SidePanel({
           )}
         </div>
         {/* Desk assignment controls */}
-        {agent && agent.role !== 'office_manager' && (
+        {agent && (
           <div style={{ marginTop: '6px' }}>
             {deskAssignMode ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -17,7 +17,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ONBOARDED_KEY = 'agency_onboarded';
 
-type OnboardingStep = 'intro' | 'click_om' | 'send_message' | 'outro' | 'done';
+type OnboardingStep = 'intro' | 'click_om' | 'assign_desk' | 'send_message' | 'outro' | 'done';
 
 const styles = {
   root: {
@@ -75,7 +75,8 @@ export function App() {
   const advanceOnboarding = useCallback(() => {
     setOnboardingStep((prev) => {
       if (prev === 'intro') return 'click_om';
-      if (prev === 'click_om') return 'send_message';
+      if (prev === 'click_om') return 'assign_desk';
+      if (prev === 'assign_desk') return 'send_message';
       if (prev === 'send_message') return 'outro';
       if (prev === 'outro') {
         localStorage.setItem(ONBOARDED_KEY, '1');
@@ -145,9 +146,12 @@ export function App() {
       });
       if (res.ok) {
         setDeskAssignMode(null);
+        if (onboardingStep === 'assign_desk') {
+          advanceOnboarding();
+        }
       }
     },
-    [deskAssignMode],
+    [deskAssignMode, onboardingStep, advanceOnboarding],
   );
 
   const handleBackgroundClick = useCallback(() => {
@@ -263,7 +267,7 @@ export function App() {
       )}
       {onboarding && (
         <OnboardingDialogue
-          step={onboardingStep as 'intro' | 'click_om' | 'send_message' | 'outro'}
+          step={onboardingStep as 'intro' | 'click_om' | 'assign_desk' | 'send_message' | 'outro'}
           onAdvance={onboardingStep === 'outro' ? finishOnboarding : advanceOnboarding}
         />
       )}
